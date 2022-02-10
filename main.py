@@ -16,7 +16,7 @@ class YoutubeUploader:
     SCOPES = ['https://www.googleapis.com/auth/youtube.upload'] # no need to change
     MAX_UPLOAD_NUM :int = int(10_000 / 1_600) #* this limitation comes from google api quota
     UPLOADED_FILES_TXT = Path(r"./uploaded_files.txt") # this is the file we used to keep track the videos we already uploaded
-    TAGS = ['PLO']
+    TAGS = []
 
     def __init__(self) -> None:
         """init function
