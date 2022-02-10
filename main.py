@@ -109,6 +109,6 @@ if __name__ == '__main__':
 
     import socket
     socket.setdefaulttimeout(30000)
-    plo_video_folder = Path(r'D:\01_Poker\88_PLO\Ups PLO Adv\3. Flop, Turn _ River')
+    video_folder = Path(r'D:\download')
     yt = YoutubeUploader()
-    yt.upload_videos_from_folder(plo_video_folder, video_ext=".mp4")
+    yt.upload_videos_from_folder(video_folder, video_ext=".mp4")
