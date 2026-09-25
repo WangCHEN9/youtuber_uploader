@@ -28,7 +28,8 @@ share/python-wheels/
 MANIFEST
 secret/
 *.pickle
-*.txt
+# (removed blanket *.txt: it hid requirements.txt. Specific
+#  state files are ignored explicitly at the end of this file.)
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -130,3 +131,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# ytupload local state (never commit: contains local paths and credentials)
+secret/
+*.pickle
+token_*.json
+uploaded_files.txt
+.upload_sessions.json
+.venv/
