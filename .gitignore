@@ -139,3 +139,6 @@ token_*.json
 uploaded_files.txt
 .upload_sessions.json
 .venv/
+
+# extracted frames (regenerable)
+.frames/

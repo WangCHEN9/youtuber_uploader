@@ -10,6 +10,7 @@ from __future__ import annotations
 import http.client
 import random
 import socket
+import sys
 import time
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional
@@ -18,9 +19,11 @@ import httplib2
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
+from .archive import ArchiveError, archive_video, is_archived
 from .auth import DEFAULT_CLIENT_SECRET_FILE, DEFAULT_TOKEN_FILE, build_youtube_service
 from .metadata import VideoMetadata
 from .tracker import ResumableSessionStore, UploadTracker
+from .video import is_long_enough
 
 #: Transient server-side failures worth retrying, per YouTube's own guidance.
 RETRIABLE_STATUS_CODES = (500, 502, 503, 504)
@@ -175,6 +178,27 @@ class YoutubeUploader:
         time.sleep(delay)
         return attempt
 
+    def archive_uploaded(self, video_path: Path) -> Optional[Path]:
+        """Move an uploaded video into its ``uploaded`` folder; return the new path.
+
+        The destination is recorded in the tracker as well as the source. A later
+        scan that encounters the moved file must recognise it as already uploaded
+        rather than treating the new path as a new video.
+
+        Failure here is reported but never raised: the upload already succeeded, and
+        a file that did not move is a tidiness problem, not a lost video.
+        """
+        try:
+            new_path = archive_video(video_path)
+        except ArchiveError as error:
+            print(f"  warning: {error}", file=sys.stderr)
+            return None
+
+        if new_path != Path(video_path):
+            self.tracker.record(new_path)
+            print(f"  moved to {new_path.parent.name}/")
+        return new_path
+
     # --------------------------------------------------------------- playlists
 
     def find_playlist(self, title: str) -> Optional[str]:
@@ -237,18 +261,37 @@ class YoutubeUploader:
     # ------------------------------------------------------------------- batch
 
     def find_new_videos(
-        self, folder: Path, extensions: Iterable[str] = (".mp4",)
+        self,
+        folder: Path,
+        extensions: Iterable[str] = (".mp4",),
+        min_duration_seconds: Optional[float] = None,
+        skip_archived: bool = True,
     ) -> List[Path]:
         """Return not-yet-uploaded videos under *folder*, oldest first.
 
         Sorting by name puts ShadowPlay captures in chronological order, because
         their timestamp format sorts lexicographically.
+
+        When *min_duration_seconds* is given, clips shorter than that are excluded:
+        captures below roughly ten minutes are misfires rather than matches.
         """
         folder = Path(folder)
         found: List[Path] = []
         for extension in extensions:
             found.extend(folder.glob(f"**/*{extension}"))
-        return sorted(
-            (path for path in found if not self.tracker.already_uploaded(path)),
-            key=lambda path: path.name,
-        )
+
+        candidates = [
+            path
+            for path in found
+            if not self.tracker.already_uploaded(path)
+            and not (skip_archived and is_archived(path))
+        ]
+
+        if min_duration_seconds:
+            candidates = [
+                path
+                for path in candidates
+                if is_long_enough(path, min_duration_seconds)
+            ]
+
+        return sorted(candidates, key=lambda path: path.name)
