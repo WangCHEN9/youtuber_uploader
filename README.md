@@ -91,6 +91,24 @@ Skips anything already uploaded, stops at the daily quota, and keeps going if on
 video fails. Titles fall back to the filename, so prefer `upload` when the title
 matters.
 
+### Cutting a long match
+
+```bash
+# Print the plan without rendering
+python -m ytupload cut "<video>" --target-minutes 25 --dry-run
+
+# Render to '<name> - cut.mp4'
+python -m ytupload cut "<video>" --target-minutes 25
+```
+
+Keeps the laning phase whole (`--lane-minutes`, default 10) and reduces the rest
+to its most eventful moments, using audio loudness relative to a rolling baseline
+plus changes in the on-screen kill counters. Game start is detected from the HUD,
+so the pre-game and the post-game screens are dropped.
+
+The target is a cap rather than a quota: a quiet match yields a shorter video, not
+one padded out to length. Encoding uses NVENC when available.
+
 ### Frames and thumbnails
 
 Neither command needs credentials or costs quota.
@@ -155,6 +173,7 @@ src/ytupload/
   uploader.py    resumable upload, playlists, thumbnails
   presets.py     reusable metadata defaults
   video.py       duration probing and frame extraction (ffmpeg)
+  editor.py      highlight detection and cutting (ffmpeg, NVENC)
   thumbnail.py   composing a thumbnail from hero art or a frame (Pillow)
   splash.py      full-bleed hero layout with circular item badges
   heroart.py     fetching and caching official Dota 2 hero renders

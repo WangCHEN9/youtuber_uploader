@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 import sys
 from pathlib import Path
 from typing import List, Optional, Sequence
@@ -22,6 +24,17 @@ from .auth import (
     build_youtube_service,
 )
 from .metadata import PRIVACY_CHOICES, MetadataError, VideoMetadata
+from .editor import (
+    DEFAULT_LANE_MINUTES,
+    DEFAULT_TARGET_MINUTES,
+    EditError,
+    analyse,
+    describe,
+    has_nvenc,
+    plan,
+    render,
+    save_plan,
+)
 from .heroart import (
     HeroArtError,
     dominant_color,
@@ -418,6 +431,62 @@ def _report_thumbnail(result: Path) -> None:
     print("review it before uploading; pass it with --thumbnail")
 
 
+def cmd_cut(args: argparse.Namespace) -> int:
+    """Cut a full match down to a highlight edit of a target length."""
+    video_path = Path(args.video)
+    if not video_path.is_file():
+        raise SystemExit(f"error: not a file: {video_path}")
+
+    # Unique per run: a workdir keyed only on the video name means two
+    # concurrent runs delete each other's frames mid-analysis, which silently
+    # produces a short, wrong edit instead of an error.
+    workdir = Path(".editcache") / f"{video_path.stem}-{os.getpid()}"
+    print(f"analysing {video_path.name} ...")
+    try:
+        analysis = analyse(video_path, workdir / "strip")
+    except EditError as error:
+        raise SystemExit(f"error: {error}")
+
+    print(
+        f"  duration {format_duration(analysis.duration)}"
+        f"   game starts at {format_duration(analysis.game_start)}"
+    )
+
+    segments = plan(
+        analysis,
+        target_minutes=args.target_minutes,
+        lane_minutes=args.lane_minutes,
+    )
+    print(f"\ncut plan (laning kept whole, then highlights):")
+    print(describe(segments))
+
+    output_path = Path(args.out or f"{video_path.stem} - cut.mp4")
+
+    if args.dry_run:
+        plan_path = save_plan(segments, workdir / "plan.json")
+        print(f"\ndry run: nothing rendered. Plan saved to {plan_path}")
+        return 0
+
+    encoder = "NVENC (GPU)" if has_nvenc() else "libx264 (CPU, slower)"
+    print(f"\nrendering {len(segments)} segments with {encoder} ...")
+
+    def progress(done: int, total: int) -> None:
+        print(f"  segment {done}/{total}", flush=True)
+
+    try:
+        result = render(
+            video_path, segments, output_path, workdir / "parts", on_progress=progress
+        )
+    except EditError as error:
+        raise SystemExit(f"error: {error}")
+
+    size_gb = result.stat().st_size / (1024 ** 3)
+    print(f"\ndone: {result}  ({size_gb:.2f} GB)")
+    shutil.rmtree(workdir, ignore_errors=True)
+    print("watch it before uploading")
+    return 0
+
+
 def cmd_auth(args: argparse.Namespace) -> int:
     """Run the OAuth consent flow and confirm the channel it authorized."""
     service = build_youtube_service(
@@ -586,6 +655,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="do not crop the game HUD away before framing (default: crop it)",
     )
     thumbnail.set_defaults(func=cmd_thumbnail)
+
+    cut = subparsers.add_parser(
+        "cut", help="cut a full match into a highlight edit of a target length"
+    )
+    cut.add_argument("video", help="path to the video file")
+    cut.add_argument(
+        "--target-minutes",
+        type=float,
+        default=DEFAULT_TARGET_MINUTES,
+        help=f"target runtime (default: {DEFAULT_TARGET_MINUTES:.0f})",
+    )
+    cut.add_argument(
+        "--lane-minutes",
+        type=float,
+        default=DEFAULT_LANE_MINUTES,
+        help=f"minutes of laning kept whole (default: {DEFAULT_LANE_MINUTES:.0f})",
+    )
+    cut.add_argument("--out", help="output path (default: '<name> - cut.mp4')")
+    cut.add_argument(
+        "--dry-run", action="store_true", help="print the cut plan without rendering"
+    )
+    cut.set_defaults(func=cmd_cut)
 
     auth = subparsers.add_parser("auth", help="run OAuth consent and verify access")
     _add_common(auth)
