@@ -26,10 +26,19 @@ from .thumbnail import (
     _trim_transparent,
 )
 
-#: Badge geometry, as fractions of the canvas height.
-BADGE_DIAMETER = 0.27
-BADGE_GAP = 0.04
-BADGE_MARGIN_X = 0.035
+#: Badge geometry, measured off a reference thumbnail. Badges run down the left on
+#: a slight diagonal, large and widely spaced, rather than as a tight centred stack:
+#: at sidebar size a few big circles read, and a neat column of small ones does not.
+#: Diameter is a fraction of canvas height and shrinks as badges are added.
+BADGE_DIAMETERS = {1: 0.36, 2: 0.34, 3: 0.25}
+
+#: Vertical span the badge block occupies, and where its top edge sits.
+BADGE_SPAN = 0.80
+BADGE_TOP = 0.06
+
+#: Left inset of the first badge, and how far each subsequent badge steps right.
+BADGE_MARGIN_X = 0.028
+BADGE_X_STEP = 0.041
 
 
 def _radial_backdrop(
@@ -151,7 +160,58 @@ def make_splash_thumbnail(
         raise ThumbnailError(f"could not read {hero_art_path}: {error}") from error
 
     width, height = THUMBNAIL_SIZE
-    canvas = _radial_backdrop(THUMBNAIL_SIZE, accent).convert("RGBA")
+
+    if _is_opaque(art):
+        # A rectangular image (a wallpaper, a screenshot) has no silhouette for the
+        # rim glow to hug, so compositing it as a cut-out would look like a pasted
+        # panel. Use it full-bleed instead, and let the vignette do the framing.
+        canvas = _full_bleed(art, THUMBNAIL_SIZE).convert("RGBA")
+    else:
+        canvas = _compose_cutout(art, THUMBNAIL_SIZE, accent)
+
+    return _finish(canvas, output_path, badge_paths, accent, headline, subtitle)
+
+
+def _is_opaque(art: Image.Image, threshold: int = 250) -> bool:
+    """Whether the image is effectively a rectangle rather than a cut-out."""
+    if "A" not in art.mode:
+        return True
+    alpha = art.getchannel("A")
+    minimum, _ = alpha.getextrema()
+    return minimum >= threshold
+
+
+def _full_bleed(art: Image.Image, size: Tuple[int, int]) -> Image.Image:
+    """Cover-crop the image to fill the canvas, then vignette the corners."""
+    width, height = size
+    target_ratio = width / height
+    source = art.convert("RGB")
+    if source.width / source.height > target_ratio:
+        new_width = int(source.height * target_ratio)
+        left = (source.width - new_width) // 2
+        source = source.crop((left, 0, left + new_width, source.height))
+    else:
+        new_height = int(source.width / target_ratio)
+        top = (source.height - new_height) // 2
+        source = source.crop((0, top, source.width, top + new_height))
+    source = source.resize(size, Image.LANCZOS)
+
+    vignette = Image.new("L", size, 0)
+    ImageDraw.Draw(vignette).ellipse(
+        [-width * 0.20, -height * 0.20, width * 1.20, height * 1.20], fill=255
+    )
+    vignette = vignette.filter(ImageFilter.GaussianBlur(int(height * 0.16)))
+    shade = Image.new("RGBA", size, (0, 0, 0, 0))
+    shade.putalpha(Image.eval(vignette, lambda value: 135 - int(value * 0.53)))
+    return Image.alpha_composite(source.convert("RGBA"), shade).convert("RGB")
+
+
+def _compose_cutout(
+    art: Image.Image, size: Tuple[int, int], accent: Tuple[int, int, int]
+) -> Image.Image:
+    """Place a transparent hero render over a themed backdrop, with rim lighting."""
+    width, height = size
+    canvas = _radial_backdrop(size, accent).convert("RGBA")
 
     # Hero fills the frame vertically and sits right of centre, leaving the left
     # third clear for badges.
@@ -172,26 +232,45 @@ def make_splash_thumbnail(
     )
     canvas.alpha_composite(art, (art_x, art_y))
 
-    # A soft darkening on the left so badges never sit on busy artwork.
-    scrim = Image.new("RGBA", THUMBNAIL_SIZE, (0, 0, 0, 0))
-    scrim_draw = ImageDraw.Draw(scrim)
-    for column in range(int(width * 0.48)):
-        alpha = int(150 * (1 - column / (width * 0.48)) ** 1.2)
-        scrim_draw.line([(column, 0), (column, height)], fill=(0, 0, 0, alpha))
-    canvas = Image.alpha_composite(canvas, scrim)
+    return canvas
 
-    badges: List[Image.Image] = []
-    diameter = int(height * BADGE_DIAMETER)
-    for icon_path in badge_paths[:3]:  # More than three stops reading as a set.
-        badges.append(_circular_badge(Path(icon_path), diameter, accent))
+
+def _finish(
+    canvas: Image.Image,
+    output_path: Path,
+    badge_paths: Sequence[Path],
+    accent: Tuple[int, int, int],
+    headline: Optional[str],
+    subtitle: Optional[str],
+) -> Path:
+    """Badges, grade, optional text and save. Shared by both composition paths."""
+    width, height = THUMBNAIL_SIZE
+
+    wanted = list(badge_paths[:3])  # More than three stops reading as a set.
+    diameter = int(height * BADGE_DIAMETERS.get(len(wanted), 0.25))
+    badges: List[Image.Image] = [
+        _circular_badge(Path(icon_path), diameter, accent) for icon_path in wanted
+    ]
 
     if badges:
-        gap = int(height * BADGE_GAP)
-        total = len(badges) * diameter + (len(badges) - 1) * gap
-        top = (height - total) // 2
+        scrim = Image.new("RGBA", THUMBNAIL_SIZE, (0, 0, 0, 0))
+        scrim_draw = ImageDraw.Draw(scrim)
+        for column in range(int(width * 0.48)):
+            alpha = int(150 * (1 - column / (width * 0.48)) ** 1.2)
+            scrim_draw.line([(column, 0), (column, height)], fill=(0, 0, 0, alpha))
+        canvas = Image.alpha_composite(canvas.convert("RGBA"), scrim)
+
+        count = len(badges)
+        span = int(height * BADGE_SPAN)
+        gap = max((span - count * diameter) // (count - 1), 0) if count > 1 else 0
+        top = int(height * BADGE_TOP)
         left = int(width * BADGE_MARGIN_X)
+        step_x = int(width * BADGE_X_STEP)
         for index, badge in enumerate(badges):
-            canvas.alpha_composite(badge, (left, top + index * (diameter + gap)))
+            canvas.alpha_composite(
+                badge,
+                (left + index * step_x, top + index * (diameter + gap)),
+            )
 
     canvas = _grade(canvas.convert("RGB"))
 

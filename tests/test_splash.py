@@ -125,3 +125,93 @@ def test_rim_glow_separates_the_hero_from_the_background(art, tmp_path):
 def test_output_is_rgb_jpeg(art, tmp_path):
     out = make_splash_thumbnail(art, tmp_path / "t.jpg")
     assert Image.open(out).mode == "RGB"
+
+
+# ------------------------------------------------- opaque art (wallpapers)
+
+
+@pytest.fixture
+def wallpaper(tmp_path):
+    """An opaque rectangular image, like a downloaded wallpaper."""
+    image = Image.new("RGB", (2560, 1440), (30, 20, 15))
+    image.paste((200, 80, 20), (800, 300, 1800, 1100))
+    path = tmp_path / "wall.jpg"
+    image.save(path, quality=92)
+    return path
+
+
+def test_opaque_art_is_detected(wallpaper, tmp_path):
+    from ytupload.splash import _is_opaque
+
+    assert _is_opaque(Image.open(wallpaper).convert("RGBA")) is True
+
+
+def test_cutout_art_is_not_treated_as_opaque(art):
+    from ytupload.splash import _is_opaque
+
+    assert _is_opaque(Image.open(art)) is False
+
+
+def test_wallpaper_produces_a_valid_thumbnail(wallpaper, tmp_path):
+    out = make_splash_thumbnail(wallpaper, tmp_path / "t.jpg")
+    assert Image.open(out).size == THUMBNAIL_SIZE
+    assert out.stat().st_size <= MAX_BYTES
+
+
+def test_a_non_16_9_wallpaper_is_cover_cropped(tmp_path):
+    """Letterboxing or stretching would look broken."""
+    tall = tmp_path / "tall.png"
+    Image.new("RGB", (900, 1600), (40, 60, 90)).save(tall)
+    out = make_splash_thumbnail(tall, tmp_path / "t.jpg")
+    assert Image.open(out).size == THUMBNAIL_SIZE
+
+
+def test_badges_work_over_a_wallpaper(wallpaper, badge, tmp_path):
+    plain = make_splash_thumbnail(wallpaper, tmp_path / "p.jpg")
+    badged = make_splash_thumbnail(wallpaper, tmp_path / "b.jpg", badge_paths=[badge])
+    assert plain.read_bytes() != badged.read_bytes()
+
+
+def test_no_badges_means_no_left_scrim(wallpaper, tmp_path):
+    """A clean wallpaper should not be dimmed for badges that are not there."""
+    out = make_splash_thumbnail(wallpaper, tmp_path / "t.jpg")
+    image = Image.open(out)
+    left = image.crop((0, 300, 60, 420)).convert("L")
+    right = image.crop((1220, 300, 1280, 420)).convert("L")
+    left_mean = sum(left.getdata()) / (left.width * left.height)
+    right_mean = sum(right.getdata()) / (right.width * right.height)
+    # Symmetric vignette: neither edge should be dramatically darker than the other.
+    assert abs(left_mean - right_mean) < 25
+
+
+# ------------------------------------------------------------ badge layout
+
+
+def test_badges_run_down_a_diagonal_not_a_straight_column(art, badge, tmp_path):
+    """Measured off the reference thumbnail: each badge steps right as it steps down."""
+    from ytupload.splash import BADGE_MARGIN_X, BADGE_X_STEP
+
+    assert BADGE_X_STEP > 0
+    assert BADGE_MARGIN_X > 0
+    out = make_splash_thumbnail(art, tmp_path / "t.jpg", badge_paths=[badge, badge])
+    assert Image.open(out).size == THUMBNAIL_SIZE
+
+
+def test_badge_diameter_shrinks_as_badges_are_added():
+    """Three badges must still fit the height, so they cannot stay full size."""
+    from ytupload.splash import BADGE_DIAMETERS
+
+    assert BADGE_DIAMETERS[1] >= BADGE_DIAMETERS[2] > BADGE_DIAMETERS[3]
+
+
+def test_three_badges_fit_within_the_canvas():
+    from ytupload.splash import BADGE_DIAMETERS, BADGE_SPAN
+
+    assert 3 * BADGE_DIAMETERS[3] <= BADGE_SPAN
+
+
+def test_badges_are_large_enough_to_read_at_sidebar_size(art, badge, tmp_path):
+    """A badge under ~20% of the height disappears in a YouTube sidebar."""
+    from ytupload.splash import BADGE_DIAMETERS
+
+    assert min(BADGE_DIAMETERS.values()) >= 0.20
