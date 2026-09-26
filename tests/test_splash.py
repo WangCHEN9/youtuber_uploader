@@ -113,3 +113,15 @@ def test_cutout_of_a_non_image_raises(tmp_path):
     junk.write_bytes(b"not an image")
     with pytest.raises(ThumbnailError):
         feathered_cutout(junk, tmp_path / "c.png")
+
+
+def test_rim_glow_separates_the_hero_from_the_background(art, tmp_path):
+    """The halo follows the art's alpha, so it must react to the accent colour."""
+    warm = make_splash_thumbnail(art, tmp_path / "warm.jpg", accent=(230, 90, 30))
+    cool = make_splash_thumbnail(art, tmp_path / "cool.jpg", accent=(40, 170, 220))
+    assert warm.read_bytes() != cool.read_bytes()
+
+
+def test_output_is_rgb_jpeg(art, tmp_path):
+    out = make_splash_thumbnail(art, tmp_path / "t.jpg")
+    assert Image.open(out).mode == "RGB"

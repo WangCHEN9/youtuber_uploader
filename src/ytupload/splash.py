@@ -60,6 +60,29 @@ def _radial_backdrop(
     return Image.alpha_composite(combined, darkened).convert("RGB")
 
 
+def _rim_glow(
+    art: Image.Image, color: Tuple[int, int, int], spread: int, strength: float = 0.85
+) -> Image.Image:
+    """A coloured halo matching the hero's silhouette.
+
+    Built from the art's own alpha channel, so it hugs the character rather than
+    being a generic blob behind them. Composited *under* the art, this is what
+    separates the hero from the background and gives the frame its depth.
+    """
+    alpha = art.getchannel("A").filter(ImageFilter.GaussianBlur(spread))
+    glow = Image.new("RGBA", art.size, color + (0,))
+    glow.putalpha(alpha.point(lambda value: int(value * strength)))
+    return glow
+
+
+def _grade(image: Image.Image, contrast: float = 1.12, saturation: float = 1.08):
+    """A light colour grade: the render is lit flat for a menu, not for a thumbnail."""
+    from PIL import ImageEnhance
+
+    image = ImageEnhance.Contrast(image).enhance(contrast)
+    return ImageEnhance.Color(image).enhance(saturation)
+
+
 def _circular_badge(
     icon_path: Path, diameter: int, ring_color: Tuple[int, int, int]
 ) -> Image.Image:
@@ -137,7 +160,17 @@ def make_splash_thumbnail(
     scale = target_height / art.height
     art = art.resize((max(int(art.width * scale), 1), target_height), Image.LANCZOS)
     art_x = int(width * 0.56) - art.width // 2
-    canvas.alpha_composite(art, (art_x, height - art.height + int(height * 0.07)))
+    art_y = height - art.height + int(height * 0.07)
+
+    # Two halos under the hero: a wide soft one for atmosphere, a tight bright one
+    # that reads as rim light. Both follow the silhouette.
+    canvas.alpha_composite(
+        _rim_glow(art, _shade(accent, 1.25), int(height * 0.07), 0.55), (art_x, art_y)
+    )
+    canvas.alpha_composite(
+        _rim_glow(art, (255, 255, 255), int(height * 0.012), 0.42), (art_x, art_y)
+    )
+    canvas.alpha_composite(art, (art_x, art_y))
 
     # A soft darkening on the left so badges never sit on busy artwork.
     scrim = Image.new("RGBA", THUMBNAIL_SIZE, (0, 0, 0, 0))
@@ -160,7 +193,7 @@ def make_splash_thumbnail(
         for index, badge in enumerate(badges):
             canvas.alpha_composite(badge, (left, top + index * (diameter + gap)))
 
-    canvas = canvas.convert("RGB")
+    canvas = _grade(canvas.convert("RGB"))
 
     if headline:
         draw = ImageDraw.Draw(canvas)
