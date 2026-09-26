@@ -328,3 +328,68 @@ def make_hero_thumbnail(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     _save_under_size_limit(canvas, output_path)
     return output_path
+
+
+# --------------------------------------------------------------- game cutouts
+
+
+def feathered_cutout(
+    frame_path: Path,
+    output_path: Path,
+    center: Tuple[float, float] = (0.5, 0.5),
+    size: float = 0.30,
+    output_size: int = 1200,
+) -> Path:
+    """Cut the hero out of a gameplay still, fading the edges to transparency.
+
+    *center* and *size* are fractions of the frame, so they are independent of the
+    capture resolution. The radial fade does two jobs: it removes the surrounding
+    terrain without needing segmentation, and it drops the floating health bar that
+    sits just above the hero.
+
+    Produces RGBA suitable for :func:`make_hero_thumbnail`, so a player's own
+    cosmetics can be used in place of the stock hero render.
+    """
+    frame_path = Path(frame_path)
+    output_path = Path(output_path)
+    if not frame_path.is_file():
+        raise ThumbnailError(f"frame not found: {frame_path}")
+
+    try:
+        source = Image.open(frame_path).convert("RGB")
+    except OSError as error:
+        raise ThumbnailError(f"could not read {frame_path}: {error}") from error
+
+    width, height = source.size
+    box_size = max(int(height * size), 16)
+    center_x = int(width * center[0])
+    center_y = int(height * center[1])
+
+    half = box_size // 2
+    left = max(0, min(center_x - half, width - box_size))
+    top = max(0, min(center_y - half, height - box_size))
+    crop = source.crop((left, top, left + box_size, top + box_size))
+    crop = crop.resize((output_size, output_size), Image.LANCZOS)
+
+    # Radial alpha: opaque in the middle, transparent at the edges.
+    mask = Image.new("L", (output_size, output_size), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    steps = 64
+    for step in range(steps):
+        radius = output_size / 2 * (1 - step / steps)
+        # Fully opaque out to ~55% of the radius, then a smooth ramp to nothing.
+        progress = 1 - step / steps
+        alpha = 255 if progress < 0.55 else int(255 * (1 - (progress - 0.55) / 0.45) ** 1.4)
+        offset = output_size / 2 - radius
+        mask_draw.ellipse(
+            [offset, offset, output_size - offset, output_size - offset],
+            fill=max(0, min(255, alpha)),
+        )
+    mask = mask.filter(ImageFilter.GaussianBlur(output_size // 40))
+
+    cutout = crop.convert("RGBA")
+    cutout.putalpha(mask)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cutout.save(output_path, "PNG")
+    return output_path

@@ -24,7 +24,8 @@ src/ytupload/
   presets.py     named metadata defaults (dota-offlane)
   video.py       ffmpeg: duration probing, frame extraction
   thumbnail.py   Pillow: compose a thumbnail from hero art or a frame
-  heroart.py     fetch and cache official Dota 2 hero renders
+  heroart.py     fetch and cache hero renders, item and ability icons
+  splash.py      full-bleed hero layout with circular badges (the default)
   archive.py     move uploaded captures into 'uploaded/'
   cli.py         argparse entry point
 tests/           pytest; no network, no credentials
@@ -87,6 +88,10 @@ These were deliberate. If you are about to undo one, say why first.
 - **A thumbnail must never reveal the match result.** There is deliberately no
   win/loss parameter on `make_thumbnail`, a test asserts its absence, and frame mode
   refuses stills from the last 20% of a match. Do not add a result option back.
+- **Splash style draws no text by default.** YouTube prints the title beneath the
+  thumbnail already; repeating it inside the image competes with itself. Do not make
+  text the default.
+- **At most three badges.** More stops reading as a set. Extras are dropped silently.
 - **Hero art is the default thumbnail source.** It cannot spoil anything, needs no
   video, and themes itself from colours sampled out of the art.
 - **Valve hero slugs are irregular** (Shadow Fiend is `nevermore`, Doom is

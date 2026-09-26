@@ -99,32 +99,51 @@ total, so 5–8 extra tags is about right.
 
 ### 4. Build a thumbnail
 
-**Never reveal the result.** Not in the thumbnail text, not in the image, not in the
-title. The viewer should not know who won before they watch.
+**Never reveal the result** — not in the image, not in the text, not in the title.
 
-**Default to hero art.** It needs no video, cannot spoil anything, and looks clean:
+**Default: splash style, hero art, no text.** YouTube prints the title directly under
+the thumbnail, so words inside the image duplicate it and compete for the same glance.
+Let the art carry the frame and use circular badges to say what the video is about.
 
 ```bash
-.venv/Scripts/python.exe -m ytupload thumbnail --hero "Mars"   --subtitle "Position 3  -  Ranked Offlane"   --out mars-thumb.jpg
+.venv/Scripts/python.exe -m ytupload thumbnail --hero "Mars"   --badges "blink,mars_arena_of_blood"   --out mars-thumb.jpg
 ```
 
-Official hero art is downloaded from Valve's CDN and cached in `.heroart/`. The
-background colour is sampled from the art itself, so every hero themes itself. The
-headline defaults to the hero name.
+- `--badges` takes up to three items or abilities. Items are plain names (`blink`,
+  `black king bar`, `assault cuirass`); abilities use their internal name
+  (`mars_arena_of_blood`). Pick the ones the game actually turned on.
+- The background colour is sampled from the hero art, so each hero themes itself.
+- `--style portrait` switches to the hero-beside-large-text layout.
+- `--with-text` adds the headline to a splash thumbnail. Usually leave it off.
 
-Use the display name (`"Shadow Fiend"`, `"Nature's Prophet"`) — the irregular Valve
-slugs are handled internally. If a hero is not found, check the spelling or pass
-`--hero-image`.
+Art is downloaded from Valve's CDN and cached in `.heroart/`. Use display names
+(`"Shadow Fiend"`, `"Nature's Prophet"`); irregular Valve slugs are handled.
 
-**Frame mode** exists if a specific moment is really wanted:
+#### Custom cosmetics
+
+The official render shows **default cosmetics**. To show the user's own set:
+
+1. **Best quality** — ask them for a screenshot from the in-game **Armory or Hero
+   Demo**, where the hero is rendered large and front-on with their items. Then:
+   `--hero-image their-screenshot.png`.
+2. **From the match, no extra work** — cut the hero out of a gameplay frame:
+
+```bash
+.venv/Scripts/python.exe -c "from ytupload.thumbnail import feathered_cutout;   feathered_cutout('.frames/<name>/midgame.jpg', 'cut.png', center=(0.42, 0.33), size=0.20)"
+```
+
+   `center` is the hero's position as a fraction of the frame; look at the frame to
+   find it. The radial fade removes the terrain and the floating health bar. **Expect
+   noticeably softer art**: the in-game model is only ~160px tall even at 1440p, and
+   the top-down angle never looks like hero art. Offer option 1 first.
+
+**Frame mode** still exists for a specific moment:
 
 ```bash
 .venv/Scripts/python.exe -m ytupload thumbnail "<video>" --headline "Mars" --at 1200
 ```
 
-Frames past 80% of the match are **refused**, because the ending gives the result
-away. The HUD is cropped automatically so the text sits over gameplay and the kill
-score is not visible. Pick a teamfight or an ultimate, never an empty lane.
+Frames past 80% of the match are refused as spoilers. The HUD is cropped automatically.
 
 **Look at the result before using it.**
 

@@ -22,9 +22,15 @@ from .auth import (
     build_youtube_service,
 )
 from .metadata import PRIVACY_CHOICES, MetadataError, VideoMetadata
-from .heroart import HeroArtError, dominant_color, fetch_hero_art
+from .heroart import (
+    HeroArtError,
+    dominant_color,
+    fetch_badge_icon,
+    fetch_hero_art,
+)
 from .presets import PRESETS
 from .shadowplay import format_capture_date
+from .splash import make_splash_thumbnail
 from .thumbnail import (
     DOTA_HUD_TRIM_BOTTOM,
     DOTA_HUD_TRIM_TOP,
@@ -295,8 +301,9 @@ def cmd_thumbnail(args: argparse.Namespace) -> int:
         )
 
     headline = args.headline or args.hero or ""
-    if not headline.strip():
-        raise SystemExit("error: --headline is required when --hero is not given")
+    needs_text = args.style == "portrait" or args.video or args.frame
+    if needs_text and not headline.strip():
+        raise SystemExit("error: --headline is required for this thumbnail style")
 
     if args.hero or args.hero_image:
         return _hero_thumbnail(args, headline)
@@ -318,14 +325,33 @@ def _hero_thumbnail(args: argparse.Namespace, headline: str) -> int:
     default_name = (args.hero or art.stem).lower().replace(" ", "-")
     output_path = Path(args.out or f"{default_name}-thumb.jpg")
 
+    badges = []
+    for badge_name in _split_tags(args.badges):
+        try:
+            badges.append(fetch_badge_icon(badge_name))
+        except HeroArtError as error:
+            print(f"warning: {error}", file=sys.stderr)
+
     try:
-        result = make_hero_thumbnail(
-            art,
-            output_path,
-            headline=headline,
-            subtitle=args.subtitle,
-            accent=dominant_color(art),
-        )
+        if args.style == "splash":
+            # Full-bleed art with circular badges, and no text: YouTube already
+            # prints the title under the thumbnail.
+            result = make_splash_thumbnail(
+                art,
+                output_path,
+                badge_paths=badges,
+                accent=dominant_color(art),
+                headline=args.headline if args.with_text else None,
+                subtitle=args.subtitle if args.with_text else None,
+            )
+        else:
+            result = make_hero_thumbnail(
+                art,
+                output_path,
+                headline=headline,
+                subtitle=args.subtitle,
+                accent=dominant_color(art),
+            )
     except ThumbnailError as error:
         raise SystemExit(f"error: {error}")
 
@@ -525,6 +551,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     thumbnail.add_argument(
         "--headline", help="large text (default: the hero name)"
+    )
+    thumbnail.add_argument(
+        "--style",
+        choices=("splash", "portrait"),
+        default="splash",
+        help="splash: full-bleed art with circular badges and no text (default). "
+        "portrait: hero beside large text.",
+    )
+    thumbnail.add_argument(
+        "--badges",
+        help="comma-separated items or abilities to show as circular badges, "
+        "e.g. \"blink,mars_arena_of_blood\". Up to three.",
+    )
+    thumbnail.add_argument(
+        "--with-text",
+        action="store_true",
+        help="draw the headline on a splash thumbnail (off by default)",
     )
     thumbnail.add_argument("--subtitle", help="smaller supporting line, e.g. the matchup")
     thumbnail.add_argument(
