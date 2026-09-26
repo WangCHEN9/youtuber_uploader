@@ -22,9 +22,16 @@ from .auth import (
     build_youtube_service,
 )
 from .metadata import PRIVACY_CHOICES, MetadataError, VideoMetadata
+from .heroart import HeroArtError, dominant_color, fetch_hero_art
 from .presets import PRESETS
 from .shadowplay import format_capture_date
-from .thumbnail import ThumbnailError, make_thumbnail
+from .thumbnail import (
+    DOTA_HUD_TRIM_BOTTOM,
+    DOTA_HUD_TRIM_TOP,
+    ThumbnailError,
+    make_hero_thumbnail,
+    make_thumbnail,
+)
 from .uploader import MAX_UPLOADS_PER_RUN, QUOTA_PER_UPLOAD, YoutubeUploader
 from .video import (
     DEFAULT_MIN_DURATION_SECONDS,
@@ -36,6 +43,10 @@ from .video import (
 )
 
 _MIB = 1024 * 1024
+
+#: Frames past this fraction of a match usually reveal the outcome, so the thumbnail
+#: command refuses them unless explicitly overridden.
+SPOILER_FRACTION = 0.8
 
 
 # --------------------------------------------------------------------- helpers
@@ -273,7 +284,57 @@ def cmd_frames(args: argparse.Namespace) -> int:
 
 
 def cmd_thumbnail(args: argparse.Namespace) -> int:
-    """Build a thumbnail from a frame of the video."""
+    """Build a thumbnail, either from hero art or from a frame of the video.
+
+    Hero art is the default for Dota because it cannot possibly spoil the result.
+    Frame mode is available when a specific moment is wanted.
+    """
+    if not args.hero and not args.hero_image and not args.video:
+        raise SystemExit(
+            "error: give --hero (recommended), --hero-image, or a video file"
+        )
+
+    headline = args.headline or args.hero or ""
+    if not headline.strip():
+        raise SystemExit("error: --headline is required when --hero is not given")
+
+    if args.hero or args.hero_image:
+        return _hero_thumbnail(args, headline)
+    return _frame_thumbnail(args, headline)
+
+
+def _hero_thumbnail(args: argparse.Namespace, headline: str) -> int:
+    """Compose from official hero art. Needs no video and reveals no outcome."""
+    if args.hero_image:
+        art = Path(args.hero_image)
+        if not art.is_file():
+            raise SystemExit(f"error: hero image not found: {art}")
+    else:
+        try:
+            art = fetch_hero_art(args.hero)
+        except HeroArtError as error:
+            raise SystemExit(f"error: {error}")
+
+    default_name = (args.hero or art.stem).lower().replace(" ", "-")
+    output_path = Path(args.out or f"{default_name}-thumb.jpg")
+
+    try:
+        result = make_hero_thumbnail(
+            art,
+            output_path,
+            headline=headline,
+            subtitle=args.subtitle,
+            accent=dominant_color(art),
+        )
+    except ThumbnailError as error:
+        raise SystemExit(f"error: {error}")
+
+    _report_thumbnail(result)
+    return 0
+
+
+def _frame_thumbnail(args: argparse.Namespace, headline: str) -> int:
+    """Compose from a still of the match. The caller must avoid spoiler moments."""
     video_path = Path(args.video)
     if not video_path.is_file():
         raise SystemExit(f"error: not a file: {video_path}")
@@ -286,33 +347,49 @@ def cmd_thumbnail(args: argparse.Namespace) -> int:
         if not frame.is_file():
             raise SystemExit(f"error: frame not found: {frame}")
     else:
+        duration = probe_duration(video_path)
         at = args.at
         if at is None:
-            duration = probe_duration(video_path)
-            # Slightly past the middle: usually a teamfight, and always past laning.
+            # Past laning, well before anything that reveals the outcome.
             at = duration * 0.55 if duration else 300
+        elif duration and at > duration * SPOILER_FRACTION and not args.allow_late_frame:
+            late_percent = int(round((1 - SPOILER_FRACTION) * 100))
+            raise SystemExit(
+                "error: "
+                + format_duration(at)
+                + " is in the last "
+                + str(late_percent)
+                + "% of a "
+                + format_duration(duration)
+                + " match, which usually shows the result. "
+                "A thumbnail must not spoil the outcome. Pick an earlier moment, "
+                "use --hero instead, or pass --allow-late-frame if you are sure "
+                "this frame gives nothing away."
+            )
         try:
             frame = extract_frame(video_path, at, workdir / "thumb-source.jpg")
         except VideoError as error:
             raise SystemExit(f"error: {error}")
 
-    won = None
-    if args.won:
-        won = True
-    elif args.lost:
-        won = False
-
     try:
         result = make_thumbnail(
-            frame, output_path, headline=args.headline, subtitle=args.subtitle, won=won
+            frame,
+            output_path,
+            headline=headline,
+            subtitle=args.subtitle,
+            trim_top=0.0 if args.keep_hud else DOTA_HUD_TRIM_TOP,
+            trim_bottom=0.0 if args.keep_hud else DOTA_HUD_TRIM_BOTTOM,
         )
     except ThumbnailError as error:
         raise SystemExit(f"error: {error}")
 
-    size_kb = result.stat().st_size / 1024
-    print(f"thumbnail: {result}  ({size_kb:,.0f} KB)")
-    print("review it before uploading; pass it with --thumbnail")
+    _report_thumbnail(result)
     return 0
+
+
+def _report_thumbnail(result: Path) -> None:
+    print(f"thumbnail: {result}  ({result.stat().st_size / 1024:,.0f} KB)")
+    print("review it before uploading; pass it with --thumbnail")
 
 
 def cmd_auth(args: argparse.Namespace) -> int:
@@ -432,11 +509,22 @@ def build_parser() -> argparse.ArgumentParser:
     frames.set_defaults(func=cmd_frames)
 
     thumbnail = subparsers.add_parser(
-        "thumbnail", help="build a thumbnail from a frame of the video"
+        "thumbnail",
+        help="build a thumbnail from official hero art, or from a video frame",
     )
-    thumbnail.add_argument("video", help="path to the video file")
     thumbnail.add_argument(
-        "--headline", required=True, help="large text, e.g. the hero name"
+        "video", nargs="?", help="video file (only needed for frame mode)"
+    )
+    thumbnail.add_argument(
+        "--hero",
+        help="hero name, e.g. \"Mars\". Uses official hero art: cannot spoil the "
+        "result, and needs no video. This is the recommended mode.",
+    )
+    thumbnail.add_argument(
+        "--hero-image", help="use this image as the hero art instead of downloading"
+    )
+    thumbnail.add_argument(
+        "--headline", help="large text (default: the hero name)"
     )
     thumbnail.add_argument("--subtitle", help="smaller supporting line, e.g. the matchup")
     thumbnail.add_argument(
@@ -445,9 +533,15 @@ def build_parser() -> argparse.ArgumentParser:
     thumbnail.add_argument("--frame", help="use this existing image instead of the video")
     thumbnail.add_argument("--out", help="output path (default: <name>-thumb.jpg)")
     thumbnail.add_argument(
-        "--won", action="store_true", help="tint the accent bar green"
+        "--allow-late-frame",
+        action="store_true",
+        help="permit a frame from the end of the match (normally refused as a spoiler)",
     )
-    thumbnail.add_argument("--lost", action="store_true", help="tint the accent bar red")
+    thumbnail.add_argument(
+        "--keep-hud",
+        action="store_true",
+        help="do not crop the game HUD away before framing (default: crop it)",
+    )
     thumbnail.set_defaults(func=cmd_thumbnail)
 
     auth = subparsers.add_parser("auth", help="run OAuth consent and verify access")

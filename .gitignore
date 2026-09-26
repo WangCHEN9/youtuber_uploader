@@ -142,3 +142,6 @@ uploaded_files.txt
 
 # extracted frames (regenerable)
 .frames/
+
+# cached hero art (re-downloadable)
+.heroart/

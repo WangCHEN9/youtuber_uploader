@@ -94,9 +94,15 @@ python -m ytupload frames "<video>"
 python -m ytupload thumbnail "<video>"   --headline "Centaur Warrunner"   --subtitle "Offlane vs Timbersaw"   --won --at 1320
 ```
 
-`frames` also prints the duration. `thumbnail` overlays large text on a frame, dims
-the area behind it so the text stays readable, and keeps the file under YouTube's
-2 MB cap.
+`frames` also prints the duration.
+
+`thumbnail` has two modes. **Hero art** (`--hero`) downloads the official render from
+Valve's CDN, caches it, and themes the background from the art's own colours; it needs
+no video and cannot reveal the match result. **Frame mode** uses a still from the
+video, cropping the game HUD away so the text sits over gameplay.
+
+Neither mode can encode the result: there are no win/loss options, and frame mode
+refuses stills from the last 20% of a match, since the ending gives the outcome away.
 
 ### Useful options
 
@@ -140,7 +146,8 @@ src/ytupload/
   uploader.py    resumable upload, playlists, thumbnails
   presets.py     reusable metadata defaults
   video.py       duration probing and frame extraction (ffmpeg)
-  thumbnail.py   composing a thumbnail from a frame (Pillow)
+  thumbnail.py   composing a thumbnail from hero art or a frame (Pillow)
+  heroart.py     fetching and caching official Dota 2 hero renders
   archive.py     moving uploaded captures aside
   cli.py         command-line interface
 ```

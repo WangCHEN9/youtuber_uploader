@@ -63,16 +63,20 @@ If you need a different moment, grab it directly:
 
 ### 3. Write the metadata
 
+**Keep the result out of the title too.** "41 Minute Comeback" and "Brutal Loss"
+both spoil it. Tease the matchup and the hero instead.
+
 **Title** — aim for **60–70 characters** (hard cap is 100, but search truncates near
 70). Front-load hero and role, then the hook. No all-caps, no manufactured outrage.
 
 Good:
 ```
-Centaur Offlane vs Timbersaw — 41 Minute Comeback | Dota 2 Pos 3
-Tidehunter Into Double Melee Lane | Dota 2 Offlane Gameplay
+Mars Offlane vs Morphling and Hoodwink | Dota 2 Position 3
+Tidehunter Into a Double Melee Lane | Dota 2 Offlane Gameplay
 ```
 
-Avoid: `Dota 2 2026.09.25 - 21.59.04.14`, `INSANE GAME!!! MUST WATCH`
+Avoid: `Dota 2 2026.09.25 - 21.59.04.14`, `INSANE GAME!!! MUST WATCH`, and anything
+naming the outcome.
 
 **Description** — write to a temp file, pass `--description-file`:
 
@@ -95,22 +99,34 @@ total, so 5–8 extra tags is about right.
 
 ### 4. Build a thumbnail
 
+**Never reveal the result.** Not in the thumbnail text, not in the image, not in the
+title. The viewer should not know who won before they watch.
+
+**Default to hero art.** It needs no video, cannot spoil anything, and looks clean:
+
 ```bash
-.venv/Scripts/python.exe -m ytupload thumbnail "<video>" \
-  --headline "Centaur Warrunner" \
-  --subtitle "Offlane vs Timbersaw  •  41 min comeback" \
-  --won \
-  --at 1320
+.venv/Scripts/python.exe -m ytupload thumbnail --hero "Mars"   --subtitle "Position 3  -  Ranked Offlane"   --out mars-thumb.jpg
 ```
 
-- `--headline` is the hero name. **Two or three words maximum** — it renders very
-  large, and the thumbnail is usually read at sidebar size.
-- `--won` / `--lost` tints the accent bar green or red.
-- `--at` picks the source frame. Default is 55% through. A teamfight or a big ability
-  looks far better than an empty lane, so pick a moment from the frames you read.
+Official hero art is downloaded from Valve's CDN and cached in `.heroart/`. The
+background colour is sampled from the art itself, so every hero themes itself. The
+headline defaults to the hero name.
 
-**Look at the result before using it.** If the frame is a loading screen, a menu, or
-mostly empty terrain, pick a different `--at` and rebuild.
+Use the display name (`"Shadow Fiend"`, `"Nature's Prophet"`) — the irregular Valve
+slugs are handled internally. If a hero is not found, check the spelling or pass
+`--hero-image`.
+
+**Frame mode** exists if a specific moment is really wanted:
+
+```bash
+.venv/Scripts/python.exe -m ytupload thumbnail "<video>" --headline "Mars" --at 1200
+```
+
+Frames past 80% of the match are **refused**, because the ending gives the result
+away. The HUD is cropped automatically so the text sits over gameplay and the kill
+score is not visible. Pick a teamfight or an ultimate, never an empty lane.
+
+**Look at the result before using it.**
 
 ### 5. Dry run, confirm, upload
 
@@ -151,6 +167,8 @@ On success you get the URL, the video is added to the **`Dota 2 - Offlane`** pla
 - **The playlist and thumbnail steps never fail the upload.** They warn. If you see a
   warning, the video is safely up — fix the extra separately.
 - **`frames` and `thumbnail` need no credentials and cost no quota.** Run them freely.
+- **The `scoreboard.jpg` review frame shows the result.** That is fine for working out
+  what happened, but it must never become a thumbnail.
 - **ffmpeg comes from the venv** (`imageio-ffmpeg`), so commands must use
   `.venv/Scripts/python.exe`, not a system Python.
 

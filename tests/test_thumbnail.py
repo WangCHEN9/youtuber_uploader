@@ -3,7 +3,14 @@
 import pytest
 from PIL import Image
 
-from ytupload.thumbnail import MAX_BYTES, THUMBNAIL_SIZE, ThumbnailError, make_thumbnail
+from ytupload.thumbnail import (
+    DOTA_HUD_TRIM_BOTTOM,
+    DOTA_HUD_TRIM_TOP,
+    MAX_BYTES,
+    THUMBNAIL_SIZE,
+    ThumbnailError,
+    make_thumbnail,
+)
 from ytupload.video import extract_frame
 
 
@@ -37,10 +44,14 @@ def test_a_very_long_headline_still_fits(frame, tmp_path):
     assert Image.open(output).size == THUMBNAIL_SIZE
 
 
-def test_win_and_loss_produce_different_images(frame, tmp_path):
-    won = make_thumbnail(frame, tmp_path / "won.jpg", headline="X", won=True)
-    lost = make_thumbnail(frame, tmp_path / "lost.jpg", headline="X", won=False)
-    assert won.read_bytes() != lost.read_bytes()
+def test_make_thumbnail_takes_no_result_argument():
+    """The result must not be encodable in a thumbnail: it would spoil the video."""
+    import inspect
+
+    parameters = inspect.signature(make_thumbnail).parameters
+    assert "won" not in parameters
+    assert "lost" not in parameters
+    assert "result" not in parameters
 
 
 def test_creates_the_output_directory(frame, tmp_path):
@@ -65,4 +76,36 @@ def test_a_non_16_9_source_is_cropped_not_squashed(tmp_path):
     tall = tmp_path / "tall.jpg"
     Image.new("RGB", (600, 1200), (30, 40, 50)).save(tall)
     output = make_thumbnail(tall, tmp_path / "t.jpg", headline="X")
+    assert Image.open(output).size == THUMBNAIL_SIZE
+
+
+def test_hud_trim_changes_the_framing(frame, tmp_path):
+    """Trimming must actually alter the image, not silently no-op."""
+    plain = make_thumbnail(frame, tmp_path / "plain.jpg", headline="X")
+    trimmed = make_thumbnail(
+        frame,
+        tmp_path / "trimmed.jpg",
+        headline="X",
+        trim_top=DOTA_HUD_TRIM_TOP,
+        trim_bottom=DOTA_HUD_TRIM_BOTTOM,
+    )
+    assert plain.read_bytes() != trimmed.read_bytes()
+
+
+def test_hud_trim_keeps_output_dimensions(frame, tmp_path):
+    output = make_thumbnail(
+        frame,
+        tmp_path / "t.jpg",
+        headline="X",
+        trim_top=DOTA_HUD_TRIM_TOP,
+        trim_bottom=DOTA_HUD_TRIM_BOTTOM,
+    )
+    assert Image.open(output).size == THUMBNAIL_SIZE
+
+
+def test_an_absurd_trim_is_refused_rather_than_destroying_the_image(frame, tmp_path):
+    """Trimming 99% from both ends would leave nothing; fall back to the full frame."""
+    output = make_thumbnail(
+        frame, tmp_path / "t.jpg", headline="X", trim_top=0.99, trim_bottom=0.99
+    )
     assert Image.open(output).size == THUMBNAIL_SIZE
