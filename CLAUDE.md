@@ -23,6 +23,7 @@ src/ytupload/
   uploader.py    YoutubeUploader: resumable upload, playlists, thumbnails
   presets.py     named metadata defaults (dota-offlane)
   video.py       ffmpeg: duration probing, frame extraction
+  editor.py      highlight detection, cut planning, NVENC rendering
   thumbnail.py   Pillow: compose a thumbnail from hero art or a frame
   heroart.py     fetch and cache hero renders, item and ability icons
   splash.py      full-bleed hero layout with circular badges (the default)
@@ -88,6 +89,25 @@ These were deliberate. If you are about to undo one, say why first.
 - **A thumbnail must never reveal the match result.** There is deliberately no
   win/loss parameter on `make_thumbnail`, a test asserts its absence, and frame mode
   refuses stills from the last 20% of a match. Do not add a result option back.
+- **The cut analysis workdir is keyed on the process id, not just the video
+  name.** Two concurrent runs of the same video used to delete each other's
+  extracted frames mid-analysis, which produced a silently short, wrong edit
+  rather than an error. Keep it unique per run.
+- **Never use plain `shutil.rmtree` on a directory ffmpeg may have touched.**
+  Windows deletes asynchronously and raises WinError 145 while a handle is open.
+  Use `ignore_errors=True` and then clear stale files individually.
+- **The cut planner ranks, it does not detect.** The goal is dropping the least
+  interesting half of the midgame, which needs only a relative ranking. A precise
+  kill detector would be more fragile and buy nothing. Do not "improve" it into
+  one.
+- **The clock is excluded from the kill-counter crop.** It sits between the two
+  counters and ticks every second, so including it makes every sample look like a
+  change.
+- **The bisection ceiling must sit strictly above max(interest).** The threshold
+  comparison is `>=`, and the returned bound is `high`, so a ceiling *at* the
+  maximum lets an over-budget cut be returned when nothing fits. A test covers it.
+- **The target is a cap, not a quota.** Never pad an edit with filler to reach the
+  requested runtime; a quiet match should produce a shorter video.
 - **Splash branches on transparency.** An opaque image (a wallpaper, promo art, a
   screenshot) is used full-bleed, because it has no silhouette for the rim glow to
   follow and would otherwise read as a pasted panel. A transparent render is

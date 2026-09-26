@@ -61,6 +61,29 @@ If you need a different moment, grab it directly:
 .venv/Scripts/python.exe -m ytupload frames "<video>" --at 1320
 ```
 
+### 3. Cut it down (optional, ask first)
+
+A full match is 40+ minutes. To cut it to a watchable highlight edit:
+
+```bash
+.venv/Scripts/python.exe -m ytupload cut "<video>" --target-minutes 25 --dry-run
+```
+
+`--dry-run` prints the cut plan and renders nothing. Show it to the user. Drop
+`--dry-run` to render to `<name> - cut.mp4`, then upload **that** file.
+
+- The laning phase is kept whole (`--lane-minutes`, default 10), because that is
+  what offlane viewers come for. The rest is ranked by audio loudness and kill-
+  counter activity, and the quietest parts are dropped.
+- Game start is detected automatically; it is not the start of the recording.
+- The target is a **cap, not a quota** — a quiet match produces a shorter video
+  rather than one padded with farming.
+- Analysis takes ~2 minutes; rendering a 25-minute 1440p60 edit takes a few
+  minutes on the GPU.
+
+**Always watch or spot-check the result before uploading.** The detector is a
+heuristic; it can cut a quiet gank or keep a loud nothing.
+
 ### 3. Write the metadata
 
 **Keep the result out of the title too.** "41 Minute Comeback" and "Brutal Loss"

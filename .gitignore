@@ -145,3 +145,6 @@ uploaded_files.txt
 
 # cached hero art (re-downloadable)
 .heroart/
+
+# cut-analysis cache (regenerable)
+.editcache/
