@@ -22,6 +22,9 @@ src/ytupload/
   auth.py        OAuth2 -> authorized service object
   uploader.py    YoutubeUploader: resumable upload, playlists, thumbnails
   presets.py     named metadata defaults (dota-offlane)
+  video.py       ffmpeg: duration probing, frame extraction
+  thumbnail.py   Pillow: compose a thumbnail from a frame
+  archive.py     move uploaded captures into 'uploaded/'
   cli.py         argparse entry point
 tests/           pytest; no network, no credentials
 ```
@@ -67,6 +70,19 @@ These were deliberate. If you are about to undo one, say why first.
   demanding auth would defeat it.
 - **No blanket `*.txt` in `.gitignore`.** It previously hid `requirements.txt`. State
   files are ignored by name.
+- **Hero identification is done by reading frames, not by computer vision.** Template
+  matching against a hero-icon library breaks on HUD skins, resolutions and every new
+  hero patch, and needs a database maintained forever. `ytupload frames` extracts
+  stills and Claude reads them. Always confirm the reading with the user before it
+  reaches a public title.
+- **ffmpeg is resolved at call time**, preferring a system binary and falling back to
+  the `imageio-ffmpeg` wheel. Do not hardcode a path.
+- **`is_long_enough()` returns True when the duration cannot be read.** Refusing to
+  upload because a probe failed is worse than uploading something short.
+- **Archiving never overwrites.** A name collision gets a `-2` suffix; the existing
+  file is an earlier upload and destroying it is unrecoverable.
+- **Playlist, thumbnail and archive failures warn rather than raise.** By that point
+  the upload has succeeded, and losing the run over a tidiness step would be wrong.
 
 ## Constraints
 
@@ -74,8 +90,11 @@ These were deliberate. If you are about to undo one, say why first.
   About 6 uploads per day. Do not raise `MAX_UPLOADS_PER_RUN` without asking.
 - **Default privacy is `public`** — the user chose this. A careless `batch` run
   publishes immediately, so keep `--dry-run` prominent in anything you write.
-- **No `ffmpeg`/`ffprobe` on this machine.** Nothing may depend on reading video
-  duration. Ask the user instead.
+- **ffmpeg ships with the venv** via `imageio-ffmpeg`, so commands must run through
+  `.venv/Scripts/python.exe`. There is no `ffprobe` in that wheel: `probe_duration`
+  falls back to parsing ffmpeg's own output, so do not assume ffprobe exists.
+- **Default min duration is 600s (10 min).** Below that a capture is a clip, not a
+  match. The user chose this threshold.
 - **Never commit** `secret/`, `token_*.json`, `uploaded_files.txt`,
   `.upload_sessions.json`.
 

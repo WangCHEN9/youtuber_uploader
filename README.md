@@ -12,7 +12,9 @@ Dota-specific except one optional preset.
 - **Metadata from the command line**, so a script or an assistant can write a real
   title, description, chapters and tags instead of a capture timestamp.
 - **No duplicate uploads.** Completed uploads are recorded and skipped.
-- **Playlists and thumbnails** handled in the same run.
+- **Playlists and thumbnails** handled in the same run, including generating a
+  thumbnail from a frame of the video itself.
+- **Short clips filtered out** by duration, and uploaded files moved aside.
 
 ## Setup
 
@@ -37,7 +39,9 @@ python -m venv .venv
 pip install -e .
 ```
 
-Requires Python 3.9 or newer.
+Requires Python 3.9 or newer. `ffmpeg` is installed automatically as a Python wheel
+(`imageio-ffmpeg`), so no system install or admin rights are needed; a system `ffmpeg`
+on `PATH` is preferred if you have one.
 
 ### 3. Authorize
 
@@ -78,6 +82,22 @@ Skips anything already uploaded, stops at the daily quota, and keeps going if on
 video fails. Titles fall back to the filename, so prefer `upload` when the title
 matters.
 
+### Frames and thumbnails
+
+Neither command needs credentials or costs quota.
+
+```bash
+# Extract stills: the post-game scoreboard, a midgame moment, and the laning stage
+python -m ytupload frames "<video>"
+
+# Build a 1280x720 thumbnail from a frame of the video
+python -m ytupload thumbnail "<video>"   --headline "Centaur Warrunner"   --subtitle "Offlane vs Timbersaw"   --won --at 1320
+```
+
+`frames` also prints the duration. `thumbnail` overlays large text on a frame, dims
+the area behind it so the text stays readable, and keeps the file under YouTube's
+2 MB cap.
+
 ### Useful options
 
 | Option | Purpose |
@@ -85,7 +105,9 @@ matters.
 | `--description-file` | Read the description from a file. Preferred: descriptions are long and multi-line. |
 | `--preset dota-offlane` | Adds offlane tags, the `Dota 2 - Offlane` playlist, and a description footer. |
 | `--playlist "Name"` | Add to a playlist, creating it if absent. |
-| `--thumbnail path.png` | Set a custom thumbnail (requires a verified account). |
+| `--thumbnail path.jpg` | Set a custom thumbnail (requires a verified account). |
+| `--archive` | Move the file into an `uploaded/` subfolder once the upload succeeds. |
+| `--min-duration` | (`batch`) Skip captures shorter than N seconds. Default 600. |
 | `--privacy` | `public` (default), `unlisted`, or `private`. |
 | `--notify` | Notify subscribers. Off by default. |
 | `--dry-run` | Rehearse without uploading or authenticating. |
@@ -117,6 +139,9 @@ src/ytupload/
   auth.py        OAuth2
   uploader.py    resumable upload, playlists, thumbnails
   presets.py     reusable metadata defaults
+  video.py       duration probing and frame extraction (ffmpeg)
+  thumbnail.py   composing a thumbnail from a frame (Pillow)
+  archive.py     moving uploaded captures aside
   cli.py         command-line interface
 ```
 

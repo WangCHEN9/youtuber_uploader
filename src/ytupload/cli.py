@@ -24,7 +24,16 @@ from .auth import (
 from .metadata import PRIVACY_CHOICES, MetadataError, VideoMetadata
 from .presets import PRESETS
 from .shadowplay import format_capture_date
+from .thumbnail import ThumbnailError, make_thumbnail
 from .uploader import MAX_UPLOADS_PER_RUN, QUOTA_PER_UPLOAD, YoutubeUploader
+from .video import (
+    DEFAULT_MIN_DURATION_SECONDS,
+    VideoError,
+    extract_frame,
+    extract_review_frames,
+    format_duration,
+    probe_duration,
+)
 
 _MIB = 1024 * 1024
 
@@ -158,6 +167,8 @@ def cmd_upload(args: argparse.Namespace) -> int:
     )
     print(f"\ndone: https://youtu.be/{video_id}")
     _attach_extras(uploader, video_id, playlist, args.thumbnail)
+    if args.archive:
+        uploader.archive_uploaded(video_path)
     return 0
 
 
@@ -178,9 +189,18 @@ def cmd_batch(args: argparse.Namespace) -> int:
             token_file=Path(args.token_file),
         )
 
-    pending = uploader.find_new_videos(folder, extensions=_split_tags(args.ext) or [".mp4"])
+    pending = uploader.find_new_videos(
+        folder,
+        extensions=_split_tags(args.ext) or [".mp4"],
+        min_duration_seconds=args.min_duration,
+    )
     if not pending:
         print("nothing new to upload.")
+        if args.min_duration:
+            print(
+                f"(clips shorter than {format_duration(args.min_duration)} "
+                "were excluded; pass --min-duration 0 to include them)"
+            )
         return 0
 
     print(f"{len(pending)} new video(s); uploading up to {limit}.")
@@ -209,6 +229,8 @@ def cmd_batch(args: argparse.Namespace) -> int:
             )
             print(f"  done: https://youtu.be/{video_id}")
             _attach_extras(uploader, video_id, playlist, None)
+            if args.archive:
+                uploader.archive_uploaded(video_path)
         except Exception as error:  # noqa: BLE001
             # One bad video must not abandon the rest of the batch.
             print(f"  failed: {error}", file=sys.stderr)
@@ -217,6 +239,80 @@ def cmd_batch(args: argparse.Namespace) -> int:
     if args.dry_run:
         print("\ndry run: nothing was uploaded.")
     return 1 if failures else 0
+
+
+def cmd_frames(args: argparse.Namespace) -> int:
+    """Extract stills so the hero, matchup and result can be read off the video.
+
+    Deliberately a separate command: it needs no credentials and no quota, so it can
+    be run freely before deciding what the video even is.
+    """
+    video_path = Path(args.video)
+    if not video_path.is_file():
+        raise SystemExit(f"error: not a file: {video_path}")
+
+    output_dir = Path(args.out or Path(".frames") / video_path.stem)
+    duration = probe_duration(video_path)
+    print(f"duration: {format_duration(duration)}")
+
+    try:
+        if args.at is not None:
+            frames = [extract_frame(video_path, args.at, output_dir / "frame.jpg")]
+        else:
+            frames = extract_review_frames(video_path, output_dir)
+    except VideoError as error:
+        raise SystemExit(f"error: {error}")
+
+    if not frames:
+        raise SystemExit("error: no frames could be extracted")
+
+    print(f"\n{len(frames)} frame(s):")
+    for frame in frames:
+        print(f"  {frame}")
+    return 0
+
+
+def cmd_thumbnail(args: argparse.Namespace) -> int:
+    """Build a thumbnail from a frame of the video."""
+    video_path = Path(args.video)
+    if not video_path.is_file():
+        raise SystemExit(f"error: not a file: {video_path}")
+
+    output_path = Path(args.out or f"{video_path.stem}-thumb.jpg")
+    workdir = Path(".frames") / video_path.stem
+
+    if args.frame:
+        frame = Path(args.frame)
+        if not frame.is_file():
+            raise SystemExit(f"error: frame not found: {frame}")
+    else:
+        at = args.at
+        if at is None:
+            duration = probe_duration(video_path)
+            # Slightly past the middle: usually a teamfight, and always past laning.
+            at = duration * 0.55 if duration else 300
+        try:
+            frame = extract_frame(video_path, at, workdir / "thumb-source.jpg")
+        except VideoError as error:
+            raise SystemExit(f"error: {error}")
+
+    won = None
+    if args.won:
+        won = True
+    elif args.lost:
+        won = False
+
+    try:
+        result = make_thumbnail(
+            frame, output_path, headline=args.headline, subtitle=args.subtitle, won=won
+        )
+    except ThumbnailError as error:
+        raise SystemExit(f"error: {error}")
+
+    size_kb = result.stat().st_size / 1024
+    print(f"thumbnail: {result}  ({size_kb:,.0f} KB)")
+    print("review it before uploading; pass it with --thumbnail")
+    return 0
 
 
 def cmd_auth(args: argparse.Namespace) -> int:
@@ -273,7 +369,15 @@ def _add_metadata_args(parser: argparse.ArgumentParser) -> None:
         "--made-for-kids", action="store_true", help="declare the video made for kids"
     )
     parser.add_argument(
+        "--thumbnail", help="custom thumbnail image (requires a verified account)"
+    )
+    parser.add_argument(
         "--notify", action="store_true", help="notify subscribers (default: off)"
+    )
+    parser.add_argument(
+        "--archive",
+        action="store_true",
+        help="after a successful upload, move the file into an 'uploaded' subfolder",
     )
     parser.add_argument(
         "--dry-run",
@@ -298,6 +402,16 @@ def build_parser() -> argparse.ArgumentParser:
     batch.add_argument("folder", help="folder to scan recursively")
     batch.add_argument("--ext", default=".mp4", help="comma-separated extensions")
     batch.add_argument(
+        "--min-duration",
+        type=float,
+        default=DEFAULT_MIN_DURATION_SECONDS,
+        metavar="SECONDS",
+        help=(
+            "skip captures shorter than this "
+            f"(default: {DEFAULT_MIN_DURATION_SECONDS:.0f}s; use 0 to keep everything)"
+        ),
+    )
+    batch.add_argument(
         "--limit",
         type=int,
         default=MAX_UPLOADS_PER_RUN,
@@ -306,6 +420,35 @@ def build_parser() -> argparse.ArgumentParser:
     _add_metadata_args(batch)
     _add_common(batch)
     batch.set_defaults(func=cmd_batch)
+
+    frames = subparsers.add_parser(
+        "frames", help="extract stills to identify the hero, matchup and result"
+    )
+    frames.add_argument("video", help="path to the video file")
+    frames.add_argument(
+        "--at", type=float, metavar="SECONDS", help="one frame at this offset"
+    )
+    frames.add_argument("--out", help="output directory (default: .frames/<name>/)")
+    frames.set_defaults(func=cmd_frames)
+
+    thumbnail = subparsers.add_parser(
+        "thumbnail", help="build a thumbnail from a frame of the video"
+    )
+    thumbnail.add_argument("video", help="path to the video file")
+    thumbnail.add_argument(
+        "--headline", required=True, help="large text, e.g. the hero name"
+    )
+    thumbnail.add_argument("--subtitle", help="smaller supporting line, e.g. the matchup")
+    thumbnail.add_argument(
+        "--at", type=float, metavar="SECONDS", help="take the frame at this offset"
+    )
+    thumbnail.add_argument("--frame", help="use this existing image instead of the video")
+    thumbnail.add_argument("--out", help="output path (default: <name>-thumb.jpg)")
+    thumbnail.add_argument(
+        "--won", action="store_true", help="tint the accent bar green"
+    )
+    thumbnail.add_argument("--lost", action="store_true", help="tint the accent bar red")
+    thumbnail.set_defaults(func=cmd_thumbnail)
 
     auth = subparsers.add_parser("auth", help="run OAuth consent and verify access")
     _add_common(auth)
