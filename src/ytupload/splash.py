@@ -26,10 +26,19 @@ from .thumbnail import (
     _trim_transparent,
 )
 
-#: Badge geometry, as fractions of the canvas height.
-BADGE_DIAMETER = 0.27
-BADGE_GAP = 0.04
-BADGE_MARGIN_X = 0.035
+#: Badge geometry, measured off a reference thumbnail. Badges run down the left on
+#: a slight diagonal, large and widely spaced, rather than as a tight centred stack:
+#: at sidebar size a few big circles read, and a neat column of small ones does not.
+#: Diameter is a fraction of canvas height and shrinks as badges are added.
+BADGE_DIAMETERS = {1: 0.36, 2: 0.34, 3: 0.25}
+
+#: Vertical span the badge block occupies, and where its top edge sits.
+BADGE_SPAN = 0.80
+BADGE_TOP = 0.06
+
+#: Left inset of the first badge, and how far each subsequent badge steps right.
+BADGE_MARGIN_X = 0.028
+BADGE_X_STEP = 0.041
 
 
 def _radial_backdrop(
@@ -237,10 +246,11 @@ def _finish(
     """Badges, grade, optional text and save. Shared by both composition paths."""
     width, height = THUMBNAIL_SIZE
 
-    badges: List[Image.Image] = []
-    diameter = int(height * BADGE_DIAMETER)
-    for icon_path in badge_paths[:3]:  # More than three stops reading as a set.
-        badges.append(_circular_badge(Path(icon_path), diameter, accent))
+    wanted = list(badge_paths[:3])  # More than three stops reading as a set.
+    diameter = int(height * BADGE_DIAMETERS.get(len(wanted), 0.25))
+    badges: List[Image.Image] = [
+        _circular_badge(Path(icon_path), diameter, accent) for icon_path in wanted
+    ]
 
     if badges:
         scrim = Image.new("RGBA", THUMBNAIL_SIZE, (0, 0, 0, 0))
@@ -250,12 +260,17 @@ def _finish(
             scrim_draw.line([(column, 0), (column, height)], fill=(0, 0, 0, alpha))
         canvas = Image.alpha_composite(canvas.convert("RGBA"), scrim)
 
-        gap = int(height * BADGE_GAP)
-        total = len(badges) * diameter + (len(badges) - 1) * gap
-        top = (height - total) // 2
+        count = len(badges)
+        span = int(height * BADGE_SPAN)
+        gap = max((span - count * diameter) // (count - 1), 0) if count > 1 else 0
+        top = int(height * BADGE_TOP)
         left = int(width * BADGE_MARGIN_X)
+        step_x = int(width * BADGE_X_STEP)
         for index, badge in enumerate(badges):
-            canvas.alpha_composite(badge, (left, top + index * (diameter + gap)))
+            canvas.alpha_composite(
+                badge,
+                (left + index * step_x, top + index * (diameter + gap)),
+            )
 
     canvas = _grade(canvas.convert("RGB"))
 

@@ -182,3 +182,36 @@ def test_no_badges_means_no_left_scrim(wallpaper, tmp_path):
     right_mean = sum(right.getdata()) / (right.width * right.height)
     # Symmetric vignette: neither edge should be dramatically darker than the other.
     assert abs(left_mean - right_mean) < 25
+
+
+# ------------------------------------------------------------ badge layout
+
+
+def test_badges_run_down_a_diagonal_not_a_straight_column(art, badge, tmp_path):
+    """Measured off the reference thumbnail: each badge steps right as it steps down."""
+    from ytupload.splash import BADGE_MARGIN_X, BADGE_X_STEP
+
+    assert BADGE_X_STEP > 0
+    assert BADGE_MARGIN_X > 0
+    out = make_splash_thumbnail(art, tmp_path / "t.jpg", badge_paths=[badge, badge])
+    assert Image.open(out).size == THUMBNAIL_SIZE
+
+
+def test_badge_diameter_shrinks_as_badges_are_added():
+    """Three badges must still fit the height, so they cannot stay full size."""
+    from ytupload.splash import BADGE_DIAMETERS
+
+    assert BADGE_DIAMETERS[1] >= BADGE_DIAMETERS[2] > BADGE_DIAMETERS[3]
+
+
+def test_three_badges_fit_within_the_canvas():
+    from ytupload.splash import BADGE_DIAMETERS, BADGE_SPAN
+
+    assert 3 * BADGE_DIAMETERS[3] <= BADGE_SPAN
+
+
+def test_badges_are_large_enough_to_read_at_sidebar_size(art, badge, tmp_path):
+    """A badge under ~20% of the height disappears in a YouTube sidebar."""
+    from ytupload.splash import BADGE_DIAMETERS
+
+    assert min(BADGE_DIAMETERS.values()) >= 0.20
