@@ -23,7 +23,8 @@ src/ytupload/
   uploader.py    YoutubeUploader: resumable upload, playlists, thumbnails
   presets.py     named metadata defaults (dota-offlane)
   video.py       ffmpeg: duration probing, frame extraction
-  thumbnail.py   Pillow: compose a thumbnail from a frame
+  thumbnail.py   Pillow: compose a thumbnail from hero art or a frame
+  heroart.py     fetch and cache official Dota 2 hero renders
   archive.py     move uploaded captures into 'uploaded/'
   cli.py         argparse entry point
 tests/           pytest; no network, no credentials
@@ -83,6 +84,16 @@ These were deliberate. If you are about to undo one, say why first.
   file is an earlier upload and destroying it is unrecoverable.
 - **Playlist, thumbnail and archive failures warn rather than raise.** By that point
   the upload has succeeded, and losing the run over a tidiness step would be wrong.
+- **A thumbnail must never reveal the match result.** There is deliberately no
+  win/loss parameter on `make_thumbnail`, a test asserts its absence, and frame mode
+  refuses stills from the last 20% of a match. Do not add a result option back.
+- **Hero art is the default thumbnail source.** It cannot spoil anything, needs no
+  video, and themes itself from colours sampled out of the art.
+- **Valve hero slugs are irregular** (Shadow Fiend is `nevermore`, Doom is
+  `doom_bringer`). `heroart._IRREGULAR_SLUGS` holds the exceptions; extend it rather
+  than changing the default transform.
+- **tests/test_cli.py must keep importing cli.py.** A syntax error there once survived
+  a fully green run because nothing imported the module.
 
 ## Constraints
 

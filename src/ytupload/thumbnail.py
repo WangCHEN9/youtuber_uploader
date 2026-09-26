@@ -25,8 +25,9 @@ _FONT_CANDIDATES: Sequence[str] = (
     r"C:\Windows\Fonts\calibrib.ttf",
 )
 
-ACCENT = (220, 60, 45)       # Dire red
-ACCENT_WIN = (120, 190, 70)  # Radiant green
+#: A single fixed accent. Deliberately not win/loss coloured: a thumbnail that
+#: signals the result spoils the video before it is watched.
+ACCENT = (220, 60, 45)
 TEXT = (255, 255, 255)
 SHADOW = (0, 0, 0)
 
@@ -88,18 +89,44 @@ def _draw_text_with_shadow(
     draw.text((x, y), text, font=font, fill=fill)
 
 
+#: Fractions of a Dota 2 frame occupied by HUD rather than gameplay: the top hero
+#: bar and clock, and the bottom ability bar, minimap and inventory. Trimming these
+#: keeps the text band over gameplay instead of over blurred interface.
+#: The top trim must clear the kill score as well as the hero bar: a visible score
+#: is a spoiler, so this is deliberately generous.
+DOTA_HUD_TRIM_TOP = 0.09
+DOTA_HUD_TRIM_BOTTOM = 0.24
+
+
+def _trim(image: Image.Image, top_fraction: float, bottom_fraction: float) -> Image.Image:
+    """Crop *fraction* off the top and bottom of the image."""
+    width, height = image.size
+    top = int(height * max(top_fraction, 0))
+    bottom = height - int(height * max(bottom_fraction, 0))
+    if bottom - top < 80:  # Refuse to trim away essentially everything.
+        return image
+    return image.crop((0, top, width, bottom))
+
+
 def make_thumbnail(
     frame_path: Path,
     output_path: Path,
     headline: str,
     subtitle: Optional[str] = None,
-    won: Optional[bool] = None,
+    trim_top: float = 0.0,
+    trim_bottom: float = 0.0,
 ) -> Path:
     """Compose a thumbnail from a gameplay frame plus overlaid text.
 
     *headline* should be two or three words (a hero name, typically). *subtitle* is
-    smaller supporting text such as the matchup. *won* tints the accent bar green or
-    red; ``None`` leaves it neutral.
+    smaller supporting text such as the matchup.
+
+    Nothing here encodes the match result, by design. The caller is responsible for
+    choosing a source frame that does not reveal it either.
+
+    *trim_top* and *trim_bottom* crop fractions off the source before framing. For
+    gameplay footage this is what stops the text band landing on the HUD: see
+    ``DOTA_HUD_TRIM_TOP`` and ``DOTA_HUD_TRIM_BOTTOM``.
     """
     frame_path = Path(frame_path)
     output_path = Path(output_path)
@@ -110,6 +137,9 @@ def make_thumbnail(
         base = Image.open(frame_path).convert("RGB")
     except OSError as error:
         raise ThumbnailError(f"could not read {frame_path}: {error}") from error
+
+    if trim_top or trim_bottom:
+        base = _trim(base, trim_top, trim_bottom)
 
     canvas = _cover(base, THUMBNAIL_SIZE)
 
@@ -134,8 +164,6 @@ def make_thumbnail(
     margin = 56
     usable = width - margin * 2
 
-    accent = ACCENT if won is None else (ACCENT_WIN if won else ACCENT)
-
     headline_text = headline.strip().upper()
     headline_font = _fit_font(draw, headline_text, usable, start_size=132)
     headline_height = headline_font.size
@@ -151,7 +179,7 @@ def make_thumbnail(
 
     # Accent bar: a fixed visual anchor in the corner of every thumbnail.
     draw.rectangle(
-        [margin, baseline - 30, margin + 140, baseline - 16], fill=accent
+        [margin, baseline - 30, margin + 140, baseline - 16], fill=ACCENT
     )
 
     _draw_text_with_shadow(draw, (margin, baseline), headline_text, headline_font, TEXT)
@@ -178,3 +206,125 @@ def _save_under_size_limit(image: Image.Image, output_path: Path) -> None:
     raise ThumbnailError(
         f"thumbnail still exceeds {MAX_BYTES} bytes at the lowest quality setting"
     )
+
+
+# ------------------------------------------------------------ hero art layout
+
+
+def _shade(color: Tuple[int, int, int], factor: float) -> Tuple[int, int, int]:
+    return tuple(max(0, min(255, int(channel * factor))) for channel in color)
+
+
+def _gradient_background(
+    size: Tuple[int, int], color: Tuple[int, int, int]
+) -> Image.Image:
+    """A diagonal wash from a dark tint of *color* into near-black."""
+    width, height = size
+    top = _shade(color, 0.55)
+    bottom = _shade(color, 0.12)
+    background = Image.new("RGB", size, bottom)
+    draw = ImageDraw.Draw(background)
+    for row in range(height):
+        ratio = row / max(height - 1, 1)
+        draw.line(
+            [(0, row), (width, row)],
+            fill=tuple(
+                int(top[i] + (bottom[i] - top[i]) * ratio) for i in range(3)
+            ),
+        )
+    return background
+
+
+def _trim_transparent(image: Image.Image) -> Image.Image:
+    """Crop to the non-transparent content, so the hero is not lost in empty space."""
+    if image.mode != "RGBA":
+        return image
+    bbox = image.getchannel("A").getbbox()
+    return image.crop(bbox) if bbox else image
+
+
+def make_hero_thumbnail(
+    hero_art_path: Path,
+    output_path: Path,
+    headline: str,
+    subtitle: Optional[str] = None,
+    accent: Optional[Tuple[int, int, int]] = None,
+) -> Path:
+    """Compose a thumbnail from hero art rather than gameplay footage.
+
+    Because no frame of the match appears, this cannot spoil the result. The hero
+    fills the right-hand side; the text occupies the left.
+    """
+    hero_art_path = Path(hero_art_path)
+    output_path = Path(output_path)
+    if not hero_art_path.is_file():
+        raise ThumbnailError(f"hero art not found: {hero_art_path}")
+
+    try:
+        art = Image.open(hero_art_path).convert("RGBA")
+    except OSError as error:
+        raise ThumbnailError(f"could not read {hero_art_path}: {error}") from error
+
+    width, height = THUMBNAIL_SIZE
+    theme = accent or ACCENT
+    canvas = _gradient_background(THUMBNAIL_SIZE, theme).convert("RGBA")
+
+    # A soft glow behind the hero lifts them off the background.
+    glow = Image.new("RGBA", THUMBNAIL_SIZE, (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse(
+        [width * 0.42, -height * 0.25, width * 1.12, height * 1.25],
+        fill=_shade(theme, 0.85) + (120,),
+    )
+    canvas = Image.alpha_composite(canvas, glow.filter(ImageFilter.GaussianBlur(90)))
+
+    # Hero art: trimmed to content, scaled to overflow the bottom edge slightly so
+    # it reads as a cut-out rather than a floating sticker.
+    art = _trim_transparent(art)
+    target_height = int(height * 1.06)
+    scale = target_height / art.height
+    art = art.resize(
+        (max(int(art.width * scale), 1), target_height), Image.LANCZOS
+    )
+    art_x = int(width * 0.60) - art.width // 4
+    canvas.alpha_composite(art, (art_x, height - art.height + int(height * 0.04)))
+
+    # Darken the left third so the text always has a ground to sit on.
+    scrim = Image.new("RGBA", THUMBNAIL_SIZE, (0, 0, 0, 0))
+    scrim_draw = ImageDraw.Draw(scrim)
+    for column in range(int(width * 0.70)):
+        alpha = int(190 * (1 - column / (width * 0.70)) ** 0.8)
+        scrim_draw.line([(column, 0), (column, height)], fill=(0, 0, 0, alpha))
+    canvas = Image.alpha_composite(canvas, scrim).convert("RGB")
+
+    draw = ImageDraw.Draw(canvas)
+    margin = 60
+    usable = int(width * 0.58)
+
+    headline_text = headline.strip().upper()
+    headline_font = _fit_font(draw, headline_text, usable, start_size=118)
+
+    subtitle_text = (subtitle or "").strip()
+    subtitle_font = (
+        _fit_font(draw, subtitle_text, usable, start_size=46) if subtitle_text else None
+    )
+    subtitle_height = (subtitle_font.size + 20) if subtitle_font else 0
+
+    block_height = headline_font.size + subtitle_height
+    baseline = (height - block_height) // 2
+
+    draw.rectangle(
+        [margin, baseline - 34, margin + 150, baseline - 20], fill=theme
+    )
+    _draw_text_with_shadow(draw, (margin, baseline), headline_text, headline_font, TEXT)
+    if subtitle_font is not None:
+        _draw_text_with_shadow(
+            draw,
+            (margin, baseline + headline_font.size + 14),
+            subtitle_text,
+            subtitle_font,
+            (222, 222, 222),
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    _save_under_size_limit(canvas, output_path)
+    return output_path
