@@ -16,6 +16,15 @@ Dota-specific except one optional preset.
   thumbnail from a frame of the video itself.
 - **Short clips filtered out** by duration, and uploaded files moved aside.
 
+## Example
+
+![Mars offlane thumbnail](docs/examples/mars-thumbnail.jpg)
+
+Built from official hero artwork with two ability badges. The accent colour is
+sampled from the art, so every hero themes itself. See
+[docs/examples](docs/examples/) — the Dota 2 artwork is Valve's and is not
+covered by this repository's MIT license.
+
 ## Setup
 
 ### 1. Google Cloud project
