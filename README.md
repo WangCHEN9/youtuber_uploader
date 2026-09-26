@@ -147,6 +147,7 @@ src/ytupload/
   presets.py     reusable metadata defaults
   video.py       duration probing and frame extraction (ffmpeg)
   thumbnail.py   composing a thumbnail from hero art or a frame (Pillow)
+  splash.py      full-bleed hero layout with circular item badges
   heroart.py     fetching and caching official Dota 2 hero renders
   archive.py     moving uploaded captures aside
   cli.py         command-line interface

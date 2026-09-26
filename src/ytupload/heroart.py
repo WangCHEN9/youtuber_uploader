@@ -57,6 +57,12 @@ _IRREGULAR_SLUGS = {
 }
 
 
+_ITEM_URL = "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/items/{slug}.png"
+_ABILITY_URL = (
+    "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/{slug}.png"
+)
+
+
 class HeroArtError(RuntimeError):
     """Hero art could not be obtained."""
 
@@ -145,3 +151,69 @@ def dominant_color(
             best_score = saturation
             best = (red, green, blue)
     return best or fallback
+
+
+#: Items whose asset slug is not their display name. Valve shortened many of them.
+_IRREGULAR_ITEMS = {
+    "assault cuirass": "assault",
+    "aghanim's scepter": "ultimate_scepter",
+    "aghanims scepter": "ultimate_scepter",
+    "scepter": "ultimate_scepter",
+    "aghanim's shard": "aghanims_shard",
+    "heart of tarrasque": "heart",
+    "boots of travel": "travel_boots",
+    "pipe of insight": "pipe",
+    "eul's scepter": "cyclone",
+    "euls scepter": "cyclone",
+    "eul's scepter of divinity": "cyclone",
+    "shiva's guard": "shivas_guard",
+    "blink dagger": "blink",
+    "octarine core": "octarine_core",
+    "black king bar": "black_king_bar",
+    "bkb": "black_king_bar",
+    "linken's sphere": "sphere",
+    "linkens sphere": "sphere",
+    "manta style": "manta",
+    "satanic": "satanic",
+    "refresher orb": "refresher",
+    "vladmir's offering": "vladmir",
+    "vladmirs offering": "vladmir",
+    "guardian greaves": "guardian_greaves",
+}
+
+
+def badge_slug(name: str) -> str:
+    """Normalise an item or ability name to its Valve asset slug."""
+    lowered = name.strip().lower()
+    if lowered in _IRREGULAR_ITEMS:
+        return _IRREGULAR_ITEMS[lowered]
+    cleaned = re.sub(r"['’\-]", "", name.strip().lower())
+    cleaned = re.sub(r"[^a-z0-9\s_]", "", cleaned)
+    return re.sub(r"\s+", "_", cleaned.strip())
+
+
+def fetch_badge_icon(name: str, cache_dir: Path = DEFAULT_CACHE_DIR) -> Path:
+    """Return a local icon for an item or ability, downloading it if needed.
+
+    Items and abilities share a namespace here because a thumbnail badge may be
+    either: "blink" is an item, "mars_arena_of_blood" an ability. Items are tried
+    first, since item names are the ones people actually type.
+    """
+    slug = badge_slug(name)
+    if not slug:
+        raise HeroArtError(f"could not derive a slug from {name!r}")
+
+    cache_dir = Path(cache_dir)
+    cached = cache_dir / "badges" / f"{slug}.png"
+    if cached.is_file():
+        return cached
+
+    for template in (_ITEM_URL, _ABILITY_URL):
+        if _download(template.format(slug=slug), cached):
+            return cached
+
+    raise HeroArtError(
+        f"no item or ability icon found for {name!r} (tried slug {slug!r}). "
+        "Item names look like 'blink' or 'black_king_bar'; abilities look like "
+        "'mars_arena_of_blood'."
+    )
