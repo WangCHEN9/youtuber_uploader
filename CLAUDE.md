@@ -88,6 +88,12 @@ These were deliberate. If you are about to undo one, say why first.
 - **A thumbnail must never reveal the match result.** There is deliberately no
   win/loss parameter on `make_thumbnail`, a test asserts its absence, and frame mode
   refuses stills from the last 20% of a match. Do not add a result option back.
+- **Splash branches on transparency.** An opaque image (a wallpaper, promo art, a
+  screenshot) is used full-bleed, because it has no silhouette for the rim glow to
+  follow and would otherwise read as a pasted panel. A transparent render is
+  composited as a cut-out with rim lighting. `_is_opaque()` decides.
+- **The left scrim is only drawn when there are badges.** Dimming a clean image for
+  badges that are not there just makes it worse.
 - **Splash style draws no text by default.** YouTube prints the title beneath the
   thumbnail already; repeating it inside the image competes with itself. Do not make
   text the default.

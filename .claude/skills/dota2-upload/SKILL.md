@@ -119,6 +119,13 @@ Let the art carry the frame and use circular badges to say what the video is abo
 Art is downloaded from Valve's CDN and cached in `.heroart/`. Use display names
 (`"Shadow Fiend"`, `"Nature's Prophet"`); irregular Valve slugs are handled.
 
+**Official hero promo art usually looks better than the stock render.** Valve's CDN
+render is lit flat for a menu; the hero-release artwork is composed and lit for
+impact. If the user has such an image, pass it with `--hero-image` — an opaque
+rectangular image is detected and used full-bleed, while a transparent PNG is
+composited as a cut-out with rim lighting. Both get the vignette, the sampled
+accent colour and the badges.
+
 #### Custom cosmetics
 
 The official render shows **default cosmetics**. To show the user's own set:
