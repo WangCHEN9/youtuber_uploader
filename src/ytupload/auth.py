@@ -99,7 +99,14 @@ def get_credentials(
         )
         # port=0 picks a free loopback port. Desktop-app credentials accept any
         # loopback port, which sidesteps the redirect_uri_mismatch error entirely.
-        credentials = flow.run_local_server(port=0)
+        #
+        # prompt="select_account consent" forces the account chooser every time.
+        # Without it Google silently reuses the last account, and an account with
+        # a Brand Account channel will quietly authorise the personal channel
+        # instead - which means uploading to the wrong channel with no warning.
+        credentials = flow.run_local_server(
+            port=0, prompt="select_account consent"
+        )
 
     token_file.write_text(credentials.to_json(), encoding="utf-8")
     return credentials

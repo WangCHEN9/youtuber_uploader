@@ -351,3 +351,55 @@ def test_a_real_length_match_yields_few_long_segments_not_many_short_ones():
     if midgame:
         average = sum(b - a for a, b in midgame) / len(midgame)
         assert average >= 45, "segments too short to establish context"
+
+# ------------------------------------------------- channel upload limits
+
+
+def test_eligible_is_not_allowed():
+    """Regression: a 25-minute upload was accepted and then deleted by YouTube.
+
+    longUploadsStatus 'eligible' means the channel *could* enable long uploads,
+    not that it has. Only 'allowed' accepts a video over 15 minutes.
+    """
+    from ytupload.uploader import UNVERIFIED_LIMIT_SECONDS, UploadError, YoutubeUploader
+
+    class FakeChannels:
+        def list(self, **kwargs):
+            return self
+
+        def execute(self):
+            return {"items": [{"id": "x", "snippet": {}, "status": {"longUploadsStatus": "eligible"}}]}
+
+    class FakeService:
+        def channels(self):
+            return FakeChannels()
+
+    uploader = YoutubeUploader(service=FakeService())
+    uploader.require_upload_length(UNVERIFIED_LIMIT_SECONDS - 1)  # short: fine
+    with pytest.raises(UploadError, match="not 'allowed'"):
+        uploader.require_upload_length(UNVERIFIED_LIMIT_SECONDS + 1)
+
+
+def test_allowed_permits_a_long_upload():
+    from ytupload.uploader import UNVERIFIED_LIMIT_SECONDS, YoutubeUploader
+
+    class FakeChannels:
+        def list(self, **kwargs):
+            return self
+
+        def execute(self):
+            return {"items": [{"id": "x", "snippet": {}, "status": {"longUploadsStatus": "allowed"}}]}
+
+    class FakeService:
+        def channels(self):
+            return FakeChannels()
+
+    YoutubeUploader(service=FakeService()).require_upload_length(
+        UNVERIFIED_LIMIT_SECONDS * 2
+    )
+
+
+def test_unknown_duration_does_not_block_an_upload():
+    from ytupload.uploader import YoutubeUploader
+
+    YoutubeUploader(service=object()).require_upload_length(None)

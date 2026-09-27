@@ -52,6 +52,9 @@ DAILY_QUOTA = 10_000
 #: How many uploads a default project daily quota allows.
 MAX_UPLOADS_PER_RUN = DAILY_QUOTA // QUOTA_PER_UPLOAD
 
+#: YouTube caps uploads at 15 minutes until the account is phone-verified.
+UNVERIFIED_LIMIT_SECONDS = 15 * 60
+
 #: 8 MiB balances request overhead against how much is re-sent after a failed chunk.
 CHUNK_SIZE = 8 * 1024 * 1024
 
@@ -177,6 +180,73 @@ class YoutubeUploader:
         print(f"  {reason}; retry {attempt}/{MAX_RETRIES} in {delay:.1f}s", flush=True)
         time.sleep(delay)
         return attempt
+
+    def channel(self) -> dict:
+        """Return the authorised channel's id, title, handle and upload limit.
+
+        Costs one quota unit. Worth it before any upload: a Google account with
+        a Brand Account channel can silently authorise the *personal* channel,
+        and a large upload landing there is tedious to undo.
+        """
+        response = (
+            self.service.channels().list(part="snippet,status", mine=True).execute()
+        )
+        items = response.get("items", [])
+        if not items:
+            raise UploadError("this account has no YouTube channel")
+        snippet = items[0]["snippet"]
+        return {
+            "id": items[0]["id"],
+            "title": snippet.get("title", ""),
+            "handle": snippet.get("customUrl", ""),
+            # "allowed" means videos over 15 minutes are accepted. "eligible"
+            # does NOT: it means the channel could enable them but has not, and
+            # an over-length upload is accepted and then deleted by YouTube.
+            "long_uploads": items[0].get("status", {}).get("longUploadsStatus", ""),
+        }
+
+    def require_upload_length(self, duration_seconds: Optional[float]) -> None:
+        """Refuse an over-length upload the channel cannot actually keep.
+
+        An unverified channel accepts a long upload and YouTube deletes it
+        afterwards, so the whole transfer is wasted with no error at upload
+        time. Checking first costs nothing.
+        """
+        if duration_seconds is None or duration_seconds <= UNVERIFIED_LIMIT_SECONDS:
+            return
+        status = self.channel()["long_uploads"]
+        if status == "allowed":
+            return
+        raise UploadError(
+            f"this video is {duration_seconds / 60:.0f} minutes, but the channel "
+            f"cannot accept uploads over {UNVERIFIED_LIMIT_SECONDS / 60:.0f} minutes "
+            f"(longUploadsStatus is {status!r}, not 'allowed').\n"
+            "YouTube would accept the upload and then delete the video. Verify the "
+            "account at https://www.youtube.com/verify first -- note that "
+            "'eligible' means able to enable this, not enabled."
+        )
+
+    def require_channel(self, expected: str) -> dict:
+        """Abort unless the authorised channel matches *expected*.
+
+        Accepts either the channel title or its handle, with or without a
+        leading ``@``, compared case-insensitively.
+        """
+        channel = self.channel()
+        wanted = expected.strip().lstrip("@").lower()
+        actual = {
+            channel["title"].strip().lower(),
+            channel["handle"].strip().lstrip("@").lower(),
+        }
+        if wanted not in actual:
+            raise UploadError(
+                f"authorised as {channel['title']!r} (@{channel['handle'].lstrip('@')}), "
+                f"but {expected!r} was expected.\n"
+                "Re-run 'ytupload auth' and pick the right channel at the account "
+                "chooser, or revoke access at "
+                "https://myaccount.google.com/permissions first."
+            )
+        return channel
 
     def archive_uploaded(self, video_path: Path) -> Optional[Path]:
         """Move an uploaded video into its ``uploaded`` folder; return the new path.

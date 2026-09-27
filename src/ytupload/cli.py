@@ -12,10 +12,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
 from typing import List, Optional, Sequence
+
+from googleapiclient.errors import HttpError
 
 from .auth import (
     DEFAULT_CLIENT_SECRET_FILE,
@@ -26,6 +29,7 @@ from .auth import (
 from .metadata import PRIVACY_CHOICES, MetadataError, VideoMetadata
 from .editor import (
     DEFAULT_LANE_MINUTES,
+    write_chapters,
     DEFAULT_TARGET_MINUTES,
     EditError,
     analyse,
@@ -51,7 +55,12 @@ from .thumbnail import (
     make_hero_thumbnail,
     make_thumbnail,
 )
-from .uploader import MAX_UPLOADS_PER_RUN, QUOTA_PER_UPLOAD, YoutubeUploader
+from .uploader import (
+    MAX_UPLOADS_PER_RUN,
+    QUOTA_PER_UPLOAD,
+    UploadError,
+    YoutubeUploader,
+)
 from .video import (
     DEFAULT_MIN_DURATION_SECONDS,
     VideoError,
@@ -82,8 +91,19 @@ def _read_description(args: argparse.Namespace) -> str:
         path = Path(args.description_file)
         if not path.is_file():
             raise SystemExit(f"error: description file not found: {path}")
-        return path.read_text(encoding="utf-8").strip()
-    return (args.description or "").strip()
+        text = path.read_text(encoding="utf-8").strip()
+    else:
+        text = (args.description or "").strip()
+
+    chapters_file = getattr(args, "chapters_file", None)
+    if chapters_file:
+        chapters_path = Path(chapters_file)
+        if not chapters_path.is_file():
+            raise SystemExit(f"error: chapters file not found: {chapters_path}")
+        chapters = chapters_path.read_text(encoding="utf-8").strip()
+        if chapters:
+            text = (text + "\n\n" + chapters).strip()
+    return text
 
 
 def _build_metadata(
@@ -169,6 +189,25 @@ def _attach_extras(
             print(f"  warning: could not set thumbnail: {error}", file=sys.stderr)
 
 
+def _confirm_channel(uploader: YoutubeUploader, args: argparse.Namespace) -> str:
+    """Return a label for the channel being uploaded to, aborting on a mismatch.
+
+    Always printed. A Google account that owns a Brand Account channel can
+    silently authorise the personal channel instead, and a multi-gigabyte upload
+    landing on the wrong channel is tedious to undo, so the destination is shown
+    every time rather than assumed.
+    """
+    try:
+        if args.expect_channel:
+            channel = uploader.require_channel(args.expect_channel)
+        else:
+            channel = uploader.channel()
+    except UploadError as error:
+        raise SystemExit(f"error: {error}")
+    handle = channel["handle"].lstrip("@")
+    return f"{channel['title']} (@{handle})" if handle else channel["title"]
+
+
 def cmd_upload(args: argparse.Namespace) -> int:
     video_path = Path(args.video)
     if not video_path.is_file():
@@ -191,7 +230,12 @@ def cmd_upload(args: argparse.Namespace) -> int:
         client_secret_file=Path(args.client_secret),
         token_file=Path(args.token_file),
     )
-    print(f"\nuploading {video_path.name} ...")
+    channel = _confirm_channel(uploader, args)
+    try:
+        uploader.require_upload_length(probe_duration(video_path))
+    except UploadError as error:
+        raise SystemExit(f"error: {error}")
+    print(f"\nuploading {video_path.name} to {channel} ...")
     video_id = uploader.upload_video(
         video_path, metadata, notify_subscribers=args.notify
     )
@@ -218,6 +262,7 @@ def cmd_batch(args: argparse.Namespace) -> int:
             client_secret_file=Path(args.client_secret),
             token_file=Path(args.token_file),
         )
+        print(f"channel: {_confirm_channel(uploader, args)}")
 
     pending = uploader.find_new_videos(
         folder,
@@ -482,8 +527,14 @@ def cmd_cut(args: argparse.Namespace) -> int:
         raise SystemExit(f"error: {error}")
 
     size_gb = result.stat().st_size / (1024 ** 3)
+    chapters_path = write_chapters(
+        segments, analysis.game_start, result.with_name(f"{result.stem} - chapters.txt")
+    )
     print(f"\ndone: {result}  ({size_gb:.2f} GB)")
     shutil.rmtree(workdir, ignore_errors=True)
+    if chapters_path:
+        print(f"chapters: {chapters_path}")
+        print("  labels are placeholders - replace them before publishing")
     print("watch it before uploading")
     return 0
 
@@ -494,7 +545,19 @@ def cmd_auth(args: argparse.Namespace) -> int:
         client_secret_file=Path(args.client_secret),
         token_file=Path(args.token_file),
     )
-    response = service.channels().list(part="snippet", mine=True).execute()
+    try:
+        response = service.channels().list(part="snippet", mine=True).execute()
+    except HttpError as error:
+        # Creating OAuth credentials and enabling the API are separate steps in
+        # Cloud Console, and everyone misses the second one on a first run. The
+        # consent already succeeded and the token is saved, so this is one click
+        # away from working -- it should not look like a crash.
+        message = _api_not_enabled_hint(error)
+        if message:
+            print(message, file=sys.stderr)
+            return 2
+        raise
+
     items = response.get("items", [])
     if not items:
         print("authorized, but this account has no YouTube channel.", file=sys.stderr)
@@ -502,6 +565,34 @@ def cmd_auth(args: argparse.Namespace) -> int:
     print(f"authorized as: {items[0]['snippet']['title']}")
     print(f"token stored at: {args.token_file}")
     return 0
+
+
+def _api_not_enabled_hint(error: "HttpError") -> Optional[str]:
+    """Turn a 403 'API not enabled' into instructions, or None if unrelated."""
+    if getattr(error, "resp", None) is None or error.resp.status != 403:
+        return None
+    detail = str(error)
+    if "has not been used in project" not in detail and "is disabled" not in detail:
+        return None
+
+    project = ""
+    match = re.search(r"project (\d+)", detail)
+    if match:
+        project = match.group(1)
+    link = (
+        "https://console.cloud.google.com/apis/api/youtube.googleapis.com/overview"
+        + (f"?project={project}" if project else "")
+    )
+    return (
+        "error: the YouTube Data API v3 is not enabled for this Google Cloud "
+        "project.\n\n"
+        "Authorisation itself succeeded and the token has been saved, so this is "
+        "the only remaining step:\n"
+        f"  1. open {link}\n"
+        "  2. click ENABLE\n"
+        "  3. wait a minute for it to take effect, then run this command again "
+        "(no browser needed this time)"
+    )
 
 
 # ---------------------------------------------------------------------- parser
@@ -543,6 +634,16 @@ def _add_metadata_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--thumbnail", help="custom thumbnail image (requires a verified account)"
+    )
+    parser.add_argument(
+        "--chapters-file",
+        help="a timestamp list appended to the description, as written by "
+        "'ytupload cut'. YouTube turns it into chapters.",
+    )
+    parser.add_argument(
+        "--expect-channel",
+        help="abort unless the authorised channel matches this title or handle, "
+        "e.g. \"yoda_dota\". Guards against uploading to the wrong channel.",
     )
     parser.add_argument(
         "--notify", action="store_true", help="notify subscribers (default: off)"
