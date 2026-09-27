@@ -118,11 +118,10 @@ These were deliberate. If you are about to undo one, say why first.
 - **Playlist and thumbnail failures are warnings, not errors.** Both failed on the
   first real upload (a transient 409, and a 403 because the channel was not yet
   verified for custom thumbnails) and the video was still fine.
-- **Chapter marks are offset by PAD_BEFORE, not placed at the segment start.**
-  Padding serves linear viewing; a chapter serves someone jumping in. Marking the
-  segment start dropped viewers into 25 seconds of empty terrain before whatever
-  the label promised. The first mark must still be exactly 0:00 or YouTube drops
-  every chapter.
+- **Chapter marks sit on the cut: one chapter per scene.** Offsetting them past
+  the run-up was tried and reverted, because it pushed each scene's opening
+  seconds into the previous chapter and misaligned every section from the edit.
+  The first mark must be exactly 0:00 or YouTube drops every chapter.
 - **The cut planner ranks, it does not detect.** The goal is dropping the least
   interesting half of the midgame, which needs only a relative ranking. A precise
   kill detector would be more fragile and buy nothing. Do not "improve" it into
