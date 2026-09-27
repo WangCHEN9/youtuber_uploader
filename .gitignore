@@ -151,3 +151,6 @@ uploaded_files.txt
 brand/*.png
 brand/*.jpg
 brand/*.jpeg
+
+# scratch space for one-off previews
+.probe/
