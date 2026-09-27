@@ -40,6 +40,11 @@ BADGE_TOP = 0.06
 BADGE_MARGIN_X = 0.028
 BADGE_X_STEP = 0.041
 
+#: Brand mark (channel mascot), bottom-right. Small enough to stay an identity
+#: mark rather than compete with the hero for attention.
+BRAND_DIAMETER = 0.17
+BRAND_MARGIN = 0.022
+
 
 def _radial_backdrop(
     size: Tuple[int, int], color: Tuple[int, int, int]
@@ -141,6 +146,7 @@ def make_splash_thumbnail(
     accent: Tuple[int, int, int] = (70, 200, 220),
     headline: Optional[str] = None,
     subtitle: Optional[str] = None,
+    brand_path: Optional[Path] = None,
 ) -> Path:
     """Compose a full-bleed hero thumbnail with circular badges down the left.
 
@@ -169,7 +175,9 @@ def make_splash_thumbnail(
     else:
         canvas = _compose_cutout(art, THUMBNAIL_SIZE, accent)
 
-    return _finish(canvas, output_path, badge_paths, accent, headline, subtitle)
+    return _finish(
+        canvas, output_path, badge_paths, accent, headline, subtitle, brand_path
+    )
 
 
 def _is_opaque(art: Image.Image, threshold: int = 250) -> bool:
@@ -235,6 +243,43 @@ def _compose_cutout(
     return canvas
 
 
+def _brand_mark(image_path: Path, diameter: int) -> Image.Image:
+    """A small circular brand mark, e.g. the channel's mascot.
+
+    Deliberately plainer than an item badge: a thin light ring and a soft drop
+    shadow, no dark disc. It is an identity mark, not information, so it should
+    sit quietly in the corner rather than compete with the hero.
+    """
+    try:
+        source = Image.open(image_path).convert("RGB")
+    except OSError as error:
+        raise ThumbnailError(f"could not read brand image {image_path}: {error}") from error
+
+    side = min(source.size)
+    left = (source.width - side) // 2
+    top = (source.height - side) // 2
+    source = source.crop((left, top, left + side, top + side))
+    source = source.resize((diameter, diameter), Image.LANCZOS)
+
+    canvas = Image.new("RGBA", (diameter + 16, diameter + 16), (0, 0, 0, 0))
+
+    shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).ellipse([8, 10, diameter + 8, diameter + 10], fill=(0, 0, 0, 170))
+    canvas = Image.alpha_composite(canvas, shadow.filter(ImageFilter.GaussianBlur(6)))
+
+    mask = Image.new("L", (diameter, diameter), 0)
+    ImageDraw.Draw(mask).ellipse([0, 0, diameter - 1, diameter - 1], fill=255)
+    canvas.paste(source, (8, 8), mask)
+
+    ring_width = max(int(diameter * 0.05), 3)
+    ImageDraw.Draw(canvas).ellipse(
+        [8, 8, diameter + 8 - 1, diameter + 8 - 1],
+        outline=(255, 255, 255, 230),
+        width=ring_width,
+    )
+    return canvas
+
+
 def _finish(
     canvas: Image.Image,
     output_path: Path,
@@ -242,8 +287,9 @@ def _finish(
     accent: Tuple[int, int, int],
     headline: Optional[str],
     subtitle: Optional[str],
+    brand_path: Optional[Path] = None,
 ) -> Path:
-    """Badges, grade, optional text and save. Shared by both composition paths."""
+    """Badges, brand mark, grade, optional text and save. Shared by both paths."""
     width, height = THUMBNAIL_SIZE
 
     wanted = list(badge_paths[:3])  # More than three stops reading as a set.
@@ -271,6 +317,15 @@ def _finish(
                 badge,
                 (left + index * step_x, top + index * (diameter + gap)),
             )
+
+    if brand_path is not None:
+        # Bottom-right: diagonally opposite the badges, so the two never collide.
+        mark = _brand_mark(Path(brand_path), int(height * BRAND_DIAMETER))
+        margin = int(width * BRAND_MARGIN)
+        canvas = canvas.convert("RGBA")
+        canvas.alpha_composite(
+            mark, (width - mark.width - margin, height - mark.height - margin)
+        )
 
     canvas = _grade(canvas.convert("RGB"))
 

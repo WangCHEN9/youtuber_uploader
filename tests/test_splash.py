@@ -215,3 +215,58 @@ def test_badges_are_large_enough_to_read_at_sidebar_size(art, badge, tmp_path):
     from ytupload.splash import BADGE_DIAMETERS
 
     assert min(BADGE_DIAMETERS.values()) >= 0.20
+
+
+# ------------------------------------------------------------- brand mark
+
+
+@pytest.fixture
+def mascot(tmp_path):
+    path = tmp_path / "mascot.png"
+    Image.new("RGB", (600, 600), (180, 150, 110)).save(path)
+    return path
+
+
+def test_brand_mark_changes_the_image(art, mascot, tmp_path):
+    plain = make_splash_thumbnail(art, tmp_path / "p.jpg")
+    branded = make_splash_thumbnail(art, tmp_path / "b.jpg", brand_path=mascot)
+    assert plain.read_bytes() != branded.read_bytes()
+
+
+def test_brand_mark_lands_in_the_bottom_right(art, mascot, tmp_path):
+    """Diagonally opposite the badges, so the two can never collide."""
+    plain = Image.open(make_splash_thumbnail(art, tmp_path / "p.jpg"))
+    branded = Image.open(make_splash_thumbnail(art, tmp_path / "b.jpg", brand_path=mascot))
+    box = (1140, 580, 1260, 700)
+    assert list(plain.crop(box).getdata()) != list(branded.crop(box).getdata())
+    # The top-left, where badges live, must be untouched by the brand mark.
+    top_left = (0, 0, 120, 120)
+    assert list(plain.crop(top_left).getdata()) == list(branded.crop(top_left).getdata())
+
+
+def test_brand_mark_coexists_with_badges(art, mascot, badge, tmp_path):
+    out = make_splash_thumbnail(
+        art, tmp_path / "t.jpg", badge_paths=[badge, badge], brand_path=mascot
+    )
+    assert Image.open(out).size == THUMBNAIL_SIZE
+
+
+def test_a_non_square_mascot_is_cropped_not_squashed(art, tmp_path):
+    wide = tmp_path / "wide.png"
+    Image.new("RGB", (1200, 400), (90, 120, 70)).save(wide)
+    out = make_splash_thumbnail(art, tmp_path / "t.jpg", brand_path=wide)
+    assert Image.open(out).size == THUMBNAIL_SIZE
+
+
+def test_an_unreadable_mascot_raises(art, tmp_path):
+    junk = tmp_path / "junk.png"
+    junk.write_bytes(b"not an image")
+    with pytest.raises(ThumbnailError, match="brand image"):
+        make_splash_thumbnail(art, tmp_path / "t.jpg", brand_path=junk)
+
+
+def test_brand_mark_is_small_enough_to_stay_a_mark(art, tmp_path):
+    """It is identity, not information; it must not rival the hero."""
+    from ytupload.splash import BADGE_DIAMETERS, BRAND_DIAMETER
+
+    assert BRAND_DIAMETER < min(BADGE_DIAMETERS.values())

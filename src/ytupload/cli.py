@@ -356,6 +356,7 @@ def _hero_thumbnail(args: argparse.Namespace, headline: str) -> int:
                 accent=dominant_color(art),
                 headline=args.headline if args.with_text else None,
                 subtitle=args.subtitle if args.with_text else None,
+                brand_path=Path(args.brand_image) if args.brand_image else None,
             )
         else:
             result = make_hero_thumbnail(
@@ -632,6 +633,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--badges",
         help="comma-separated items or abilities to show as circular badges, "
         "e.g. \"blink,mars_arena_of_blood\". Up to three.",
+    )
+    thumbnail.add_argument(
+        "--brand-image",
+        help="small circular mark in the bottom-right corner, e.g. the channel "
+        "mascot. Appears on every thumbnail, so viewers recognise the channel.",
     )
     thumbnail.add_argument(
         "--with-text",
