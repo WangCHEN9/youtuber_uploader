@@ -109,19 +109,39 @@ heuristic; it can cut a quiet gank or keep a loud nothing.
 **Keep the result out of the title too.** "41 Minute Comeback" and "Brutal Loss"
 both spoil it. Tease the matchup and the hero instead.
 
-**Title** — aim for **60–70 characters** (hard cap is 100, but search truncates near
+**Title** — aim for **40–50 characters** (hard cap is 100, but search truncates near
 70). Front-load hero and role, then the hook. No all-caps, no manufactured outrage.
 
 Good:
 ```
-Mars Offlane vs Morphling and Hoodwink | Dota 2 Position 3
-Tidehunter Into a Double Melee Lane | Dota 2 Offlane Gameplay
+Mars Offlane Into a Lane That Shouldn't Work     (44)
+Tidehunter Into a Double Melee Lane              (35)
+The Offlane Matchup Nobody Wants                 (32)
 ```
 
 Avoid: `Dota 2 2026.09.25 - 21.59.04.14`, `INSANE GAME!!! MUST WATCH`, and anything
 naming the outcome.
 
-**Description** — write to a temp file, pass `--description-file`:
+**Description** — write to a temp file, pass `--description-file`.
+
+Write it **in the user's voice, to a viewer**. First person, conversational. The
+first draft written for this channel failed on exactly this: it explained the
+editing method in passive voice ("the laning phase is kept in full, because that
+is where offlane games are decided") which reads like release notes, not like
+someone talking about their game.
+
+- Talk about the **match**, not about how it was edited. The one exception is a
+  single casual line noting the game clock jumps, because otherwise viewers are
+  confused by it.
+- First person and active voice. "I've cut the farming out", not "the farming is
+  cut out".
+- Address the viewer at least once: "chapters below if you want to skip to the
+  fights".
+- **Do not invent the user's opinions.** Their hero, the matchup and the draft
+  are facts you can read off the frames; how the lane felt, what they were
+  thinking, whether a call was good are not. Ask, or leave them out.
+
+Structure:
 
 1. **Hook, 1–2 sentences.** Only the first ~150 characters show in search, so put the
    matchup and the outcome there.

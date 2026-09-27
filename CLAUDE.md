@@ -71,8 +71,10 @@ These were deliberate. If you are about to undo one, say why first.
   bytes and must not resume into an old session.
 - **`--dry-run` must never require credentials.** It is the rehearsal path, and
   demanding auth would defeat it.
-- **No blanket `*.txt` in `.gitignore`.** It previously hid `requirements.txt`. State
-  files are ignored by name.
+- **No blanket `*.txt` in `.gitignore`.** One used to hide a tracked file that
+  nobody noticed was missing. State files are ignored by name instead.
+- **Dependencies live only in `pyproject.toml`.** A `requirements.txt` duplicating
+  them was removed: nothing installed from it, and two lists drift.
 - **Hero identification is done by reading frames, not by computer vision.** Template
   matching against a hero-icon library breaks on HUD skins, resolutions and every new
   hero patch, and needs a database maintained forever. `ytupload frames` extracts
