@@ -163,9 +163,10 @@ def test_total_runtime_respects_the_target():
 
 
 def test_a_shorter_target_keeps_less_when_there_is_more_than_it_can_fit():
-    # Dense, varied events, so there is genuinely more material than either
-    # budget can hold and the threshold has something to discriminate on.
-    peaks = [(t, 1.0 + (t % 7)) for t in range(760, 2340, 8)]
+    # Spaced far enough apart to stay separate scenes under the padding, with
+    # varied heights so the threshold has something to discriminate on, and
+    # enough of them that the smaller budget genuinely cannot hold them all.
+    peaks = [(t, 1.0 + (t % 7)) for t in range(760, 2340, 100)]
     analysis = _analysis(peaks=peaks)
     short = sum(b - a for a, b in plan(analysis, target_minutes=18, lane_minutes=10))
     long = sum(b - a for a, b in plan(analysis, target_minutes=30, lane_minutes=10))
@@ -178,7 +179,7 @@ def test_the_target_is_a_cap_not_a_quota():
     A sparse match should produce a short video, not a long one bulked out with
     farming to hit the requested runtime.
     """
-    peaks = [(t, 8.0) for t in range(800, 2300, 60)]
+    peaks = [(t, 8.0) for t in range(800, 2300, 200)]
     analysis = _analysis(peaks=peaks)
     modest = plan(analysis, target_minutes=18, lane_minutes=10)
     generous = plan(analysis, target_minutes=40, lane_minutes=10)
@@ -187,7 +188,7 @@ def test_the_target_is_a_cap_not_a_quota():
 
 
 def test_more_laning_leaves_less_for_highlights():
-    peaks = [(t, 8.0) for t in range(1000, 2300, 60)]
+    peaks = [(t, 8.0) for t in range(700, 2300, 100)]
     analysis = _analysis(peaks=peaks)
     few = plan(analysis, target_minutes=25, lane_minutes=8)
     many = plan(analysis, target_minutes=25, lane_minutes=15)
@@ -300,3 +301,53 @@ def test_extract_reuses_a_locked_workdir(tmp_path, monkeypatch):
 
     # The stale frame must be gone, or it would be read as real data.
     assert not (workdir / "999.jpg").exists()
+
+
+# --------------------------------------------------- segments carry context
+
+
+def test_padding_is_generous_enough_to_show_why_a_fight_happened():
+    """Regression: 6s of lead-in dropped viewers into the middle of fights.
+
+    A teamfight's run-up - the rotation, the positioning, the ward going down -
+    is most of what makes it readable, and it happens well before anyone dies.
+    """
+    from ytupload.editor import PAD_AFTER, PAD_BEFORE
+
+    assert PAD_BEFORE >= 20, "too little lead-in; fights start without explanation"
+    assert PAD_AFTER >= 12, "too little aftermath; the outcome gets cut away"
+    assert PAD_BEFORE > PAD_AFTER, "the run-up matters more than the aftermath"
+
+
+def test_no_segment_is_short_enough_to_feel_like_a_jump_cut():
+    from ytupload.editor import MIN_SEGMENT
+
+    assert MIN_SEGMENT >= 25
+
+
+def test_related_action_merges_into_one_scene():
+    """Two fights a minute apart are one sequence, not two abrupt cuts."""
+    interest = _curve(2400, [(1000, 8.0), (1055, 8.0)])
+    segments = _segments_above(interest, 3.0, 700, 2300)
+    assert len(segments) == 1
+
+
+def test_a_real_length_match_yields_few_long_segments_not_many_short_ones():
+    """The failure mode being guarded against is a choppy edit.
+
+    Twenty-one segments across 25 minutes is a cut every 70 seconds, which is
+    what made the first edit feel abrupt.
+    """
+    # Real fights produce several kills within seconds; isolated evenly-spaced
+    # events are not what a match looks like.
+    peaks = [
+        (moment + offset, 4.0 + (moment % 5))
+        for moment in range(800, 2300, 200)
+        for offset in (0, 8, 16)
+    ]
+    segments = plan(_analysis(peaks=peaks), target_minutes=25, lane_minutes=10)
+    midgame = segments[1:]
+    assert len(midgame) <= 12, "too many cuts; the edit will feel choppy"
+    if midgame:
+        average = sum(b - a for a, b in midgame) / len(midgame)
+        assert average >= 45, "segments too short to establish context"

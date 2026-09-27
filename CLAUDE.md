@@ -96,6 +96,15 @@ These were deliberate. If you are about to undo one, say why first.
 - **Never use plain `shutil.rmtree` on a directory ffmpeg may have touched.**
   Windows deletes asynchronously and raises WinError 145 while a handle is open.
   Use `ignore_errors=True` and then clear stale files individually.
+- **Segment padding is deliberately generous** (25s before, 15s after, 30s
+  minimum, 25s merge gap). The first version used 6/6/10/5 and the user reported
+  the edit as abrupt: it dropped viewers into the middle of fights with no idea
+  why anyone was there, then cut away before the outcome. A fight's run-up is
+  most of what makes it readable and happens well before anyone dies. Do not
+  tighten these to fit more moments in.
+- **No segment-count cap.** One was tried and removed: it made --target-minutes
+  do nothing once the ceiling was reached. The padding and merge gap already
+  produce few, long scenes, which is what actually matters.
 - **The cut planner ranks, it does not detect.** The goal is dropping the least
   interesting half of the midgame, which needs only a relative ranking. A precise
   kill detector would be more fragile and buy nothing. Do not "improve" it into

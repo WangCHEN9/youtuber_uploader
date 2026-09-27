@@ -31,6 +31,23 @@ class AuthError(RuntimeError):
     """Authentication could not be completed."""
 
 
+def find_client_secret(path: Path = DEFAULT_CLIENT_SECRET_FILE) -> Path:
+    """Locate the OAuth client secret file.
+
+    Google Cloud Console downloads these as
+    ``client_secret_<id>.apps.googleusercontent.com.json``, so accept that name
+    as well rather than making every user rename the file by hand.
+
+    Returns *path* unchanged when nothing is found, so the caller can raise an
+    error naming the location the user expected.
+    """
+    path = Path(path)
+    if path.is_file():
+        return path
+    candidates = sorted(path.parent.glob("client_secret*.json"))
+    return candidates[0] if candidates else path
+
+
 def _load_credentials(token_file: Path, scopes: Sequence[str]) -> Credentials | None:
     """Load stored credentials, or ``None`` if they are missing or unusable."""
     if not token_file.exists():
@@ -69,7 +86,7 @@ def get_credentials(
     credentials = _load_credentials(token_file, scopes)
 
     if credentials is None:
-        client_secret_file = Path(client_secret_file)
+        client_secret_file = find_client_secret(client_secret_file)
         if not client_secret_file.exists():
             raise AuthError(
                 f"OAuth client secret not found at {client_secret_file}.\n"

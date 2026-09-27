@@ -49,11 +49,20 @@ LEAD_IN = 15.0
 DEFAULT_TARGET_MINUTES = 25.0
 DEFAULT_LANE_MINUTES = 10.0
 
-#: Segment shaping.
-MIN_SEGMENT = 10.0
-PAD_BEFORE = 6.0
-PAD_AFTER = 6.0
-MERGE_GAP = 5.0
+#: Segment shaping. These exist to keep each kept piece a coherent *scene*
+#: rather than a clip of the kill itself. Early values were far too tight (6s of
+#: padding, 10s minimum) and the result dropped viewers into the middle of fights
+#: with no idea why anyone was there, then cut away before the outcome.
+#:
+#: A teamfight's run-up - the rotation, the positioning, the ward going down - is
+#: most of what makes it readable, and it happens well before anyone dies.
+MIN_SEGMENT = 30.0
+PAD_BEFORE = 25.0
+PAD_AFTER = 15.0
+
+#: Generous, so related action becomes one continuous scene instead of several
+#: rapid cuts. With the padding above, events within roughly a minute merge.
+MERGE_GAP = 25.0
 
 AUDIO_RATE = 8000
 
@@ -337,6 +346,12 @@ def plan(
         return [(start, min(start + target, analysis.duration))]
 
     budget = target - (lane_end - start)
+
+    def fits(threshold: float) -> bool:
+        """Whether this threshold produces an edit within the budget."""
+        segments = _segments_above(analysis.interest, threshold, lane_end, end)
+        return sum(b - a for a, b in segments) <= budget
+
     # `high` must be a threshold that definitely fits, because it is what gets
     # returned. The comparison is >=, so the ceiling has to sit strictly above
     # every value or the very first iteration already breaks the invariant and an
@@ -345,11 +360,10 @@ def plan(
     high = (max(analysis.interest) if analysis.interest else 1.0) + 1.0
     for _ in range(40):
         middle = (low + high) / 2
-        total = sum(b - a for a, b in _segments_above(analysis.interest, middle, lane_end, end))
-        if total > budget:
-            low = middle
-        else:
+        if fits(middle):
             high = middle
+        else:
+            low = middle
 
     return [(start, lane_end)] + _segments_above(analysis.interest, high, lane_end, end)
 
