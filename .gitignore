@@ -148,3 +148,6 @@ uploaded_files.txt
 
 # cut-analysis cache (regenerable)
 .editcache/
+brand/*.png
+brand/*.jpg
+brand/*.jpeg

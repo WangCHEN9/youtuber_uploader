@@ -5,6 +5,22 @@ description: Use when the user wants to upload a Dota 2 gameplay video to YouTub
 
 # Uploading a Dota 2 video
 
+## The channel
+
+| | |
+|---|---|
+| Name | **Yoda Dota** |
+| Handle | `@yodaofflane` |
+| Mascot | the user's cat, Yoda - the channel is named after the cat, not Star Wars |
+| Player | Immortal, position 3 (offlane). In-game ID: Yoda |
+
+Keep the rank out of titles and thumbnails; it belongs in the channel description.
+Lean the visual identity on the cat, never on Star Wars imagery.
+
+Every thumbnail should carry the mascot via `--brand-image`, so the channel is
+recognisable in a sidebar.
+
+
 The user plays **position 3 (offlane)**. Captures come from NVIDIA ShadowPlay:
 
 ```
@@ -129,13 +145,15 @@ the thumbnail, so words inside the image duplicate it and compete for the same g
 Let the art carry the frame and use circular badges to say what the video is about.
 
 ```bash
-.venv/Scripts/python.exe -m ytupload thumbnail --hero "Mars"   --badges "blink,mars_arena_of_blood"   --out mars-thumb.jpg
+.venv/Scripts/python.exe -m ytupload thumbnail --hero "Mars"   --badges "blink,mars_arena_of_blood"   --brand-image brand/yoda.png   --out mars-thumb.jpg
 ```
 
 - `--badges` takes up to three items or abilities. Items are plain names (`blink`,
   `black king bar`, `assault cuirass`); abilities use their internal name
   (`mars_arena_of_blood`). Pick the ones the game actually turned on.
 - The background colour is sampled from the hero art, so each hero themes itself.
+- `--brand-image` puts the channel mascot in the bottom-right corner, diagonally
+  opposite the badges. Use it on every thumbnail for a consistent identity.
 - `--style portrait` switches to the hero-beside-large-text layout.
 - `--with-text` adds the headline to a splash thumbnail. Usually leave it off.
 

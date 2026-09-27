@@ -117,6 +117,9 @@ These were deliberate. If you are about to undo one, say why first.
 - **Splash style draws no text by default.** YouTube prints the title beneath the
   thumbnail already; repeating it inside the image competes with itself. Do not make
   text the default.
+- **The brand mark sits bottom-right, diagonally opposite the badges.** They can
+  then never collide regardless of badge count. It is also deliberately smaller
+  than any badge: it is identity, not information.
 - **At most three badges.** More stops reading as a set. Extras are dropped silently.
 - **Hero art is the default thumbnail source.** It cannot spoil anything, needs no
   video, and themes itself from colours sampled out of the art.

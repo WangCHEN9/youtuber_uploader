@@ -139,6 +139,7 @@ refuses stills from the last 20% of a match, since the ending gives the outcome 
 | `--preset dota-offlane` | Adds offlane tags, the `Dota 2 - Offlane` playlist, and a description footer. |
 | `--playlist "Name"` | Add to a playlist, creating it if absent. |
 | `--thumbnail path.jpg` | Set a custom thumbnail (requires a verified account). |
+| `--brand-image path.png` | Channel mascot, bottom-right corner of the thumbnail. |
 | `--archive` | Move the file into an `uploaded/` subfolder once the upload succeeds. |
 | `--min-duration` | (`batch`) Skip captures shorter than N seconds. Default 600. |
 | `--privacy` | `public` (default), `unlisted`, or `private`. |
