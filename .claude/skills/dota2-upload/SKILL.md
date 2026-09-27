@@ -96,6 +96,9 @@ A full match is 40+ minutes. To cut it to a watchable highlight edit:
   rather than one padded with farming.
 - Analysis takes ~2 minutes; rendering a 25-minute 1440p60 edit takes a few
   minutes on the GPU.
+- Each kept scene carries 25s of run-up and 15s of aftermath, and nearby action
+  merges, so a fight is shown with its cause and its outcome rather than as a
+  bare clip of the kill.
 
 **Always watch or spot-check the result before uploading.** The detector is a
 heuristic; it can cut a quiet gank or keep a loud nothing.
