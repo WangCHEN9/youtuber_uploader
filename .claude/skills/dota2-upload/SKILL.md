@@ -201,6 +201,13 @@ Frames past 80% of the match are refused as spoilers. The HUD is cropped automat
 
 ### 5. Dry run, confirm, upload
 
+Always pass `--expect-channel yoda_dota`. A Google account that owns a Brand
+Account channel silently authorises the personal channel otherwise, and the
+upload lands on the wrong one.
+
+Pass `--chapters-file "<name> - chapters.txt"` (written by `cut`) after replacing
+its placeholder labels with real descriptions read from the frames.
+
 **Always `--dry-run` first** and show the user. Privacy defaults to **public**, so an
 unreviewed run publishes immediately.
 
@@ -230,6 +237,9 @@ On success you get the URL, the video is added to the **`Dota 2 - Offlane`** pla
 
 ## Things that will bite you
 
+- **Videos over 15 minutes need a phone-verified account.** The tool refuses the
+  upload when `longUploadsStatus` is not `allowed`; `eligible` is not enough.
+- **Custom thumbnails also need a verified account**, separately.
 - **Quota is 6 uploads per day.** Each costs 1,600 units of 10,000. A playlist add and
   a thumbnail set cost 50 each. Exceeding it returns 403 until midnight Pacific. Never
   batch-upload speculatively.

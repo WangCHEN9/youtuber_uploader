@@ -105,6 +105,17 @@ These were deliberate. If you are about to undo one, say why first.
 - **No segment-count cap.** One was tried and removed: it made --target-minutes
   do nothing once the ceiling was reached. The padding and merge gap already
   produce few, long scenes, which is what actually matters.
+- **`longUploadsStatus` must be `allowed`, not `eligible`.** `eligible` means the
+  channel *could* enable uploads over 15 minutes but has not. YouTube accepts an
+  over-length upload from such a channel and then deletes the video, so the whole
+  transfer is wasted with no error at upload time. A 3.8 GB upload was lost this
+  way; `require_upload_length()` and a test now guard it.
+- **Always print the destination channel before uploading.** An account owning a
+  Brand Account channel silently authorises the *personal* channel, and OAuth
+  reuses the last account unless `prompt=select_account` forces the chooser.
+- **Playlist and thumbnail failures are warnings, not errors.** Both failed on the
+  first real upload (a transient 409, and a 403 because the channel was not yet
+  verified for custom thumbnails) and the video was still fine.
 - **The cut planner ranks, it does not detect.** The goal is dropping the least
   interesting half of the midgame, which needs only a relative ranking. A precise
   kill detector would be more fragile and buy nothing. Do not "improve" it into

@@ -473,3 +473,74 @@ def save_plan(segments: Sequence[Segment], path: Path) -> Path:
     path = Path(path)
     path.write_text(json.dumps([list(s) for s in segments], indent=2), encoding="utf-8")
     return path
+
+# -------------------------------------------------------------------- chapters
+
+#: YouTube only renders chapters when the first is 0:00, there are at least
+#: three, and each runs 10 seconds or longer.
+MIN_CHAPTERS = 3
+MIN_CHAPTER_SECONDS = 10.0
+
+
+def timestamp(seconds: float) -> str:
+    """Format as M:SS, or H:MM:SS past an hour, which is what YouTube parses."""
+    total = int(seconds)
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
+
+
+def chapters_for(
+    segments: Sequence[Segment], game_start: float
+) -> List[Tuple[float, float]]:
+    """Map each kept scene to (position in the edit, in-game clock).
+
+    Cutting makes the in-game clock jump, which is exactly the orientation a
+    viewer loses. Pairing each chapter with the real game time gives it back.
+    """
+    chapters: List[Tuple[float, float]] = []
+    elapsed = 0.0
+    for begin, end in segments:
+        chapters.append((elapsed, max(begin - game_start, 0.0)))
+        elapsed += end - begin
+    return chapters
+
+
+def render_chapters(
+    chapters: Sequence[Tuple[float, float]],
+    labels: Optional[Sequence[str]] = None,
+) -> str:
+    """Render chapters as the timestamp list YouTube parses from a description.
+
+    Without *labels* each chapter is named after its in-game clock. That is
+    accurate but dull: the tool cannot know what happened, so the intent is that
+    the labels are replaced with real descriptions before publishing.
+    """
+    if len(chapters) < MIN_CHAPTERS:
+        return ""
+
+    lines: List[str] = []
+    for index, (position, game_clock) in enumerate(chapters):
+        if labels and index < len(labels) and labels[index].strip():
+            text = labels[index].strip()
+        elif index == 0:
+            text = "Laning phase"
+        else:
+            text = f"Game clock {timestamp(game_clock)}"
+        # The first chapter must start at 0:00 or YouTube ignores the whole set.
+        lines.append(f"{timestamp(position if index else 0)} {text}")
+    return "\n".join(lines)
+
+
+def write_chapters(
+    segments: Sequence[Segment], game_start: float, path: Path
+) -> Optional[Path]:
+    """Write a chapters file beside the edit, or None if there are too few."""
+    text = render_chapters(chapters_for(segments, game_start))
+    if not text:
+        return None
+    path = Path(path)
+    path.write_text(text + "\n", encoding="utf-8")
+    return path
