@@ -10,7 +10,8 @@ description: Use when the user wants to upload a Dota 2 gameplay video to YouTub
 | | |
 |---|---|
 | Name | **Yoda Dota** |
-| Handle | `@yodaofflane` |
+| URL | https://www.youtube.com/@yoda_dota |
+| Handle | `@yoda_dota` |
 | Mascot | the user's cat, Yoda - the channel is named after the cat, not Star Wars |
 | Player | Immortal, position 3 (offlane). In-game ID: Yoda |
 
