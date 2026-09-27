@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — ytupload</title>
+<style>
+  :root {
+    --bg: #14161a;
+    --panel: #1c1f25;
+    --text: #e6e8ec;
+    --muted: #9aa1ad;
+    --accent: #e0562d;
+    --line: #2a2f38;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 64px 24px 96px; }
+  h1 { font-size: 1.9rem; margin: 0 0 .2em; letter-spacing: -.02em; }
+  .date { color: var(--muted); margin: 0 0 2.5em; font-size: .92rem; }
+  h2 { font-size: 1.1rem; margin: 2.4em 0 .5em; }
+  p, li { color: #cfd4dc; }
+  a { color: var(--accent); }
+  ul { padding-left: 1.2em; }
+  code {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: .15em .45em;
+    font-size: .9em;
+  }
+  .callout {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 1.5em 0;
+  }
+  .rule { height: 1px; background: var(--line); margin: 3em 0 1.5em; border: 0; }
+  footer { color: var(--muted); font-size: .9rem; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Privacy Policy</h1>
+  <p class="date">ytupload · last updated 27 September 2026</p>
+
+  <div class="callout">
+    <p style="margin:0">
+      <strong>ytupload is a local command-line tool, not a hosted service.</strong>
+      It runs entirely on the computer of the person using it. There is no server,
+      no database and no operator with access to your data.
+    </p>
+  </div>
+
+  <h2>1. What the application accesses</h2>
+  <p>
+    With your permission, ytupload uses the YouTube Data API v3 under a single OAuth
+    scope, <code>youtube.force-ssl</code>. It uses that access only to:
+  </p>
+  <ul>
+    <li>upload video files to your own YouTube channel;</li>
+    <li>set the title, description, tags, category and privacy status of those uploads;</li>
+    <li>set a custom thumbnail on those uploads;</li>
+    <li>read your playlist titles, and add your uploads to one of your playlists;</li>
+    <li>read your channel name, in order to confirm which account was authorised.</li>
+  </ul>
+  <p>
+    It does not read, modify or delete videos it did not upload, and it does not
+    access analytics, comments, subscribers or any other account data.
+  </p>
+
+  <h2>2. What is stored, and where</h2>
+  <p>Everything is stored on your own computer. Nothing is stored anywhere else.</p>
+  <ul>
+    <li>
+      <code>token_youtube_v3.json</code> — the OAuth credentials issued by Google after
+      you authorise the application. This file grants access to your account; keep it
+      private.
+    </li>
+    <li>
+      <code>secret/</code> — the OAuth client credentials you downloaded from Google
+      Cloud Console.
+    </li>
+    <li>
+      <code>uploaded_files.txt</code> — a list of video file paths already uploaded, so
+      the same file is not uploaded twice.
+    </li>
+    <li>
+      <code>.upload_sessions.json</code> — resumable upload session identifiers, so an
+      interrupted upload can continue.
+    </li>
+  </ul>
+
+  <h2>3. What is transmitted</h2>
+  <p>
+    The only data sent anywhere is what you explicitly choose to upload: your video
+    file and the metadata you supply, sent to YouTube over HTTPS. Thumbnail artwork
+    and hero images may be downloaded from Valve's public content delivery network.
+  </p>
+  <p>
+    No data is transmitted to the author of this application or to any third party.
+    There is no analytics, no telemetry, no tracking and no advertising.
+  </p>
+
+  <h2>4. Sharing</h2>
+  <p>
+    Your data is never sold, rented or shared. The author of this application has no
+    access to it, because it never leaves your computer.
+  </p>
+
+  <h2>5. Retention and deletion</h2>
+  <p>
+    Because all data is local, you control retention entirely. To remove the
+    application's stored data, delete the files listed in section 2. To revoke its
+    access to your Google account, visit
+    <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>
+    and remove this application. Revoking access immediately invalidates any stored
+    credentials.
+  </p>
+
+  <h2>6. Google and YouTube</h2>
+  <p>
+    This application uses YouTube API Services. Your use of it is subject to the
+    <a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a>, and
+    Google's handling of your data is governed by the
+    <a href="https://policies.google.com/privacy">Google Privacy Policy</a>.
+  </p>
+
+  <h2>7. Children</h2>
+  <p>
+    This is a developer tool and is not directed at children. It collects no personal
+    information from anyone.
+  </p>
+
+  <h2>8. Changes</h2>
+  <p>
+    Any change to this policy will be published on this page with an updated date. The
+    full revision history is public in the
+    <a href="https://github.com/WangCHEN9/youtuber_uploader/commits/main/docs/privacy.html">repository</a>.
+  </p>
+
+  <h2>9. Contact</h2>
+  <p>
+    Questions can be raised as an issue at
+    <a href="https://github.com/WangCHEN9/youtuber_uploader/issues">github.com/WangCHEN9/youtuber_uploader/issues</a>.
+  </p>
+
+  <hr class="rule">
+  <footer>
+    <p>
+      <a href="index.html">ytupload</a> ·
+      <a href="https://github.com/WangCHEN9/youtuber_uploader">Source</a>
+    </p>
+    <p>
+      Dota&nbsp;2 is a trademark of Valve Corporation. This project is not affiliated
+      with or endorsed by Valve, Google, or YouTube.
+    </p>
+  </footer>
+
+</div>
+</body>
+</html>
