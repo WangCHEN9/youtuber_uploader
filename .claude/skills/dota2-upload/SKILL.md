@@ -191,6 +191,20 @@ rectangular image is detected and used full-bleed, while a transparent PNG is
 composited as a cut-out with rim lighting. Both get the vignette, the sampled
 accent colour and the badges.
 
+#### Writing chapter labels
+
+`cut` places each mark on the event, not on the start of the scene, because every
+scene opens with 25 seconds of run-up. **Read the frame at the mark itself** —
+labelling from a frame in the middle of a scene produced labels that had nothing
+to do with what a viewer saw on clicking.
+
+- Keep the granularity consistent. "Arena of Blood" (one instant) next to "Vision
+  in the Dire jungle" (a whole scene) reads as inconsistent; pick scene-level
+  descriptions and let a single standout moment be the exception.
+- No outcomes. "Fight near the Roshan pit", never "winning the Roshan fight".
+- If the frame at a mark shows nothing happening, the label should say so
+  honestly ("Rotating to the Radiant side") rather than promise action.
+
 #### Custom cosmetics
 
 The official render shows **default cosmetics**. To show the user's own set:

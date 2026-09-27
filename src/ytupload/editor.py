@@ -502,9 +502,16 @@ def chapters_for(
     """
     chapters: List[Tuple[float, float]] = []
     elapsed = 0.0
-    for begin, end in segments:
-        chapters.append((elapsed, max(begin - game_start, 0.0)))
-        elapsed += end - begin
+    for index, (begin, end) in enumerate(segments):
+        length = end - begin
+        # Each scene opens with PAD_BEFORE seconds of run-up. That exists so the
+        # video reads when watched straight through, but someone clicking a
+        # chapter wants the event, not the walk up to it. Offset the mark to
+        # where the action actually starts -- capped so it never lands past the
+        # middle of a short scene.
+        offset = 0.0 if index == 0 else min(PAD_BEFORE, length * 0.5)
+        chapters.append((elapsed + offset, max(begin + offset - game_start, 0.0)))
+        elapsed += length
     return chapters
 
 
