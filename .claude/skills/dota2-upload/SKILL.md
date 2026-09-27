@@ -109,13 +109,14 @@ heuristic; it can cut a quiet gank or keep a loud nothing.
 **Keep the result out of the title too.** "41 Minute Comeback" and "Brutal Loss"
 both spoil it. Tease the matchup and the hero instead.
 
-**Title** — aim for **60–70 characters** (hard cap is 100, but search truncates near
+**Title** — aim for **40–50 characters** (hard cap is 100, but search truncates near
 70). Front-load hero and role, then the hook. No all-caps, no manufactured outrage.
 
 Good:
 ```
-Mars Offlane vs Morphling and Hoodwink | Dota 2 Position 3
-Tidehunter Into a Double Melee Lane | Dota 2 Offlane Gameplay
+Mars Offlane Into a Lane That Shouldn't Work     (44)
+Tidehunter Into a Double Melee Lane              (35)
+The Offlane Matchup Nobody Wants                 (32)
 ```
 
 Avoid: `Dota 2 2026.09.25 - 21.59.04.14`, `INSANE GAME!!! MUST WATCH`, and anything
