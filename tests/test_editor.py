@@ -403,3 +403,37 @@ def test_unknown_duration_does_not_block_an_upload():
     from ytupload.uploader import YoutubeUploader
 
     YoutubeUploader(service=object()).require_upload_length(None)
+
+
+def test_chapter_marks_skip_the_run_up():
+    """A chapter mark must land on the event, not on the walk up to it.
+
+    Every scene opens with PAD_BEFORE seconds of approach. That padding makes
+    the video read when watched straight through, but someone clicking a
+    chapter wants the event. Marking the segment start put them 25 seconds of
+    empty terrain away from what the label promised.
+    """
+    from ytupload.editor import PAD_BEFORE, chapters_for
+
+    segments = [(100.0, 700.0), (800.0, 900.0)]
+    marks = chapters_for(segments, game_start=100.0)
+    assert marks[0][0] == 0.0, "the first mark must be 0:00 or YouTube drops them all"
+    # Second scene begins at 600s into the edit; the mark sits PAD_BEFORE later.
+    assert marks[1][0] == 600.0 + PAD_BEFORE
+
+
+def test_a_short_scene_never_marks_past_its_middle():
+    """Offsetting must not push the mark beyond the scene it belongs to."""
+    from ytupload.editor import chapters_for
+
+    segments = [(100.0, 700.0), (800.0, 830.0)]  # a 30s scene
+    marks = chapters_for(segments, game_start=100.0)
+    assert marks[1][0] <= 600.0 + 15.0
+
+
+def test_chapter_game_clock_follows_the_offset_mark():
+    """The stated game time must match where the viewer actually lands."""
+    from ytupload.editor import PAD_BEFORE, chapters_for
+
+    marks = chapters_for([(100.0, 700.0), (800.0, 900.0)], game_start=100.0)
+    assert marks[1][1] == 700.0 + PAD_BEFORE
