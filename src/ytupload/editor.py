@@ -500,18 +500,15 @@ def chapters_for(
     Cutting makes the in-game clock jump, which is exactly the orientation a
     viewer loses. Pairing each chapter with the real game time gives it back.
     """
+    # One chapter per kept scene, marked at the cut. Offsetting the mark past
+    # the run-up was tried and reverted: it pushed each scene's opening seconds
+    # into the previous chapter, so the sections on the progress bar no longer
+    # lined up with the edit at all. A chapter is a scene; label it as one.
     chapters: List[Tuple[float, float]] = []
     elapsed = 0.0
-    for index, (begin, end) in enumerate(segments):
-        length = end - begin
-        # Each scene opens with PAD_BEFORE seconds of run-up. That exists so the
-        # video reads when watched straight through, but someone clicking a
-        # chapter wants the event, not the walk up to it. Offset the mark to
-        # where the action actually starts -- capped so it never lands past the
-        # middle of a short scene.
-        offset = 0.0 if index == 0 else min(PAD_BEFORE, length * 0.5)
-        chapters.append((elapsed + offset, max(begin + offset - game_start, 0.0)))
-        elapsed += length
+    for begin, end in segments:
+        chapters.append((elapsed, max(begin - game_start, 0.0)))
+        elapsed += end - begin
     return chapters
 
 

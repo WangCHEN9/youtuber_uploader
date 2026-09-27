@@ -193,17 +193,20 @@ accent colour and the badges.
 
 #### Writing chapter labels
 
-`cut` places each mark on the event, not on the start of the scene, because every
-scene opens with 25 seconds of run-up. **Read the frame at the mark itself** —
-labelling from a frame in the middle of a scene produced labels that had nothing
-to do with what a viewer saw on clicking.
+`cut` marks each chapter at the cut, so one chapter is one scene and the sections
+on the progress bar line up with the edit. Each scene opens with about 25 seconds
+of run-up, which belongs to that scene.
+
+**Label the scene, not an instant inside it.** Read a frame from the middle of
+the scene to see what it is about, and write a label that stays true from the
+moment it starts.
 
 - Keep the granularity consistent. "Arena of Blood" (one instant) next to "Vision
   in the Dire jungle" (a whole scene) reads as inconsistent; pick scene-level
   descriptions and let a single standout moment be the exception.
 - No outcomes. "Fight near the Roshan pit", never "winning the Roshan fight".
-- If the frame at a mark shows nothing happening, the label should say so
-  honestly ("Rotating to the Radiant side") rather than promise action.
+- If a scene is mostly movement, say so ("Rotating to the Radiant side") rather
+  than promise a fight.
 
 #### Custom cosmetics
 

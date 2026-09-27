@@ -405,35 +405,31 @@ def test_unknown_duration_does_not_block_an_upload():
     YoutubeUploader(service=object()).require_upload_length(None)
 
 
-def test_chapter_marks_skip_the_run_up():
-    """A chapter mark must land on the event, not on the walk up to it.
+def test_one_chapter_per_scene_marked_at_the_cut():
+    """A chapter is a scene. Marks sit on the cut, so the sections on the
+    progress bar line up with the edit.
 
-    Every scene opens with PAD_BEFORE seconds of approach. That padding makes
-    the video read when watched straight through, but someone clicking a
-    chapter wants the event. Marking the segment start put them 25 seconds of
-    empty terrain away from what the label promised.
+    Offsetting marks past the run-up was tried and reverted: it pushed each
+    scene's opening seconds into the previous chapter, which misaligned every
+    section from the edit it was meant to describe.
     """
-    from ytupload.editor import PAD_BEFORE, chapters_for
-
-    segments = [(100.0, 700.0), (800.0, 900.0)]
-    marks = chapters_for(segments, game_start=100.0)
-    assert marks[0][0] == 0.0, "the first mark must be 0:00 or YouTube drops them all"
-    # Second scene begins at 600s into the edit; the mark sits PAD_BEFORE later.
-    assert marks[1][0] == 600.0 + PAD_BEFORE
-
-
-def test_a_short_scene_never_marks_past_its_middle():
-    """Offsetting must not push the mark beyond the scene it belongs to."""
     from ytupload.editor import chapters_for
 
-    segments = [(100.0, 700.0), (800.0, 830.0)]  # a 30s scene
+    segments = [(100.0, 700.0), (800.0, 900.0), (1000.0, 1100.0)]
     marks = chapters_for(segments, game_start=100.0)
-    assert marks[1][0] <= 600.0 + 15.0
+    assert [position for position, _ in marks] == [0.0, 600.0, 700.0]
 
 
-def test_chapter_game_clock_follows_the_offset_mark():
-    """The stated game time must match where the viewer actually lands."""
-    from ytupload.editor import PAD_BEFORE, chapters_for
+def test_the_first_chapter_is_always_zero():
+    """YouTube ignores the whole set unless the first mark is 0:00."""
+    from ytupload.editor import chapters_for
+
+    marks = chapters_for([(250.0, 800.0), (900.0, 1000.0)], game_start=100.0)
+    assert marks[0][0] == 0.0
+
+
+def test_the_game_clock_matches_the_cut():
+    from ytupload.editor import chapters_for
 
     marks = chapters_for([(100.0, 700.0), (800.0, 900.0)], game_start=100.0)
-    assert marks[1][1] == 700.0 + PAD_BEFORE
+    assert marks[1][1] == 700.0
