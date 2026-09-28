@@ -147,11 +147,17 @@ def make_splash_thumbnail(
     headline: Optional[str] = None,
     subtitle: Optional[str] = None,
     brand_path: Optional[Path] = None,
+    opponent_art_path: Optional[Path] = None,
 ) -> Path:
     """Compose a full-bleed hero thumbnail with circular badges down the left.
 
     No text is drawn unless *headline* is given: YouTube renders the title directly
     beneath the thumbnail, so repeating it inside the image wastes the space.
+
+    *opponent_art_path* adds the lane opponent on the left, smaller and darkened
+    so it reads as the opposition rather than a second protagonist. This is the
+    main defence against every thumbnail on a one-hero channel looking identical:
+    the matchup changes every game even when the hero does not.
 
     Nothing here can encode the match result.
     """
@@ -173,7 +179,7 @@ def make_splash_thumbnail(
         # panel. Use it full-bleed instead, and let the vignette do the framing.
         canvas = _full_bleed(art, THUMBNAIL_SIZE).convert("RGBA")
     else:
-        canvas = _compose_cutout(art, THUMBNAIL_SIZE, accent)
+        canvas = _compose_cutout(art, THUMBNAIL_SIZE, accent, opponent_art_path)
 
     return _finish(
         canvas, output_path, badge_paths, accent, headline, subtitle, brand_path
@@ -215,11 +221,17 @@ def _full_bleed(art: Image.Image, size: Tuple[int, int]) -> Image.Image:
 
 
 def _compose_cutout(
-    art: Image.Image, size: Tuple[int, int], accent: Tuple[int, int, int]
+    art: Image.Image,
+    size: Tuple[int, int],
+    accent: Tuple[int, int, int],
+    opponent_art_path: Optional[Path] = None,
 ) -> Image.Image:
     """Place a transparent hero render over a themed backdrop, with rim lighting."""
     width, height = size
     canvas = _radial_backdrop(size, accent).convert("RGBA")
+
+    if opponent_art_path is not None:
+        canvas = _place_opponent(canvas, Path(opponent_art_path), size)
 
     # Hero fills the frame vertically and sits right of centre, leaving the left
     # third clear for badges.
@@ -240,6 +252,47 @@ def _compose_cutout(
     )
     canvas.alpha_composite(art, (art_x, art_y))
 
+    return canvas
+
+
+#: The lane opponent, relative to the player's hero. Smaller and darker, so the
+#: pair reads as protagonist and opposition rather than two equal subjects.
+#:
+#: The horizontal position is a compromise: the badges occupy the left edge, and
+#: the player's hero starts around 40% across, so the opponent's head has to land
+#: in the gap between them. Moving it further left buries the face behind a badge.
+OPPONENT_SCALE = 0.62
+OPPONENT_DARKEN = 0.42
+OPPONENT_CENTRE_X = 0.30
+
+
+def _place_opponent(
+    canvas: Image.Image, art_path: Path, size: Tuple[int, int]
+) -> Image.Image:
+    """Composite the lane opponent on the left, behind where the hero will go."""
+    try:
+        art = Image.open(art_path).convert("RGBA")
+    except OSError as error:
+        raise ThumbnailError(
+            f"could not read opponent art {art_path}: {error}"
+        ) from error
+
+    width, height = size
+    art = _trim_transparent(art)
+    target_height = int(height * 1.14 * OPPONENT_SCALE)
+    scale = target_height / art.height
+    art = art.resize((max(int(art.width * scale), 1), target_height), Image.LANCZOS)
+
+    # Darkened rather than desaturated: silhouettes stay readable, and the colour
+    # still hints at who it is, but nothing competes with the player's hero.
+    from PIL import ImageEnhance
+
+    rgb = ImageEnhance.Brightness(art.convert("RGB")).enhance(OPPONENT_DARKEN)
+    art = Image.merge("RGBA", (*rgb.split(), art.getchannel("A")))
+
+    art_x = int(width * OPPONENT_CENTRE_X) - art.width // 2
+    art_y = height - art.height + int(height * 0.05)
+    canvas.alpha_composite(art, (max(art_x, -art.width // 3), art_y))
     return canvas
 
 
