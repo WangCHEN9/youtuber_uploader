@@ -69,19 +69,19 @@ If several captures are new, ask which one. Never assume the newest is the one m
 
 From these, work out: **your hero**, the **lane opponents** and the **result**.
 
-**A hero appearing near the lane does not mean they laned there.** Nature's
-Prophet has a global teleport and turns up everywhere; smoke ganks, rotations and
-rune fights put anyone on screen for a few seconds. A published title claimed a
-"double ranged" lane on exactly this mistake, and it was wrong.
+**Never name an opponent hero in the title or the description.** The user has
+asked for this directly. The thumbnail may show one — a picture makes no factual
+claim the way a sentence does — but the words stay about the user's own hero.
 
-To call a matchup, the hero has to be there **repeatedly across the laning
-phase** — sample several frames minutes apart, not one. If that is not clear,
-**ask, or write a title that does not mention the lane at all.** A stat or a
-claim about the hero works without knowing who was in the lane:
+This also sidesteps a trap worth knowing about. **A hero appearing near the lane
+does not mean they laned there.** Nature's Prophet has a global teleport and
+turns up everywhere; smoke ganks, rotations and rune fights put anyone on screen
+for a few seconds. A published title claimed a "double ranged" lane on exactly
+that mistake and was wrong.
 
-```
-Mars Offlane, 206 Last Hits
-``` If the capture starts mid-game or the end screen is missing,
+For the thumbnail's `--vs`, the hero should be present **repeatedly across the
+laning phase** — sample several frames minutes apart, not one. If it is not
+clear, ask rather than guess. If the capture starts mid-game or the end screen is missing,
 say what you could and could not determine.
 
 **Always show the user what you concluded before using it.** Misreading a portrait is
@@ -193,7 +193,8 @@ someone talking about their game.
 Structure:
 
 1. **Hook, 1–2 sentences.** Only the first ~150 characters show in search, so put
-   the hero and the matchup there. **Never the outcome** - the same rule as the
+   the user's hero and role there. **Never an opponent hero, and never the
+   outcome** - the same rule as the
    title. This line used to say "the matchup and the outcome", contradicting the
    rule three paragraphs above it.
 2. **A short paragraph** on how the game went.
