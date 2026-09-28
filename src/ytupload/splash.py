@@ -262,7 +262,10 @@ def _compose_cutout(
 #: the player's hero starts around 40% across, so the opponent's head has to land
 #: in the gap between them. Moving it further left buries the face behind a badge.
 OPPONENT_SCALE = 0.62
-OPPONENT_DARKEN = 0.42
+#: Heroes whose art is already dark (Nature's Prophet, Shadow Fiend) disappear
+#: entirely at a heavier setting, so this is tuned for the darkest of them rather
+#: than the brightest.
+OPPONENT_DARKEN = 0.58
 OPPONENT_CENTRE_X = 0.30
 
 

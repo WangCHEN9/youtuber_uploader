@@ -128,6 +128,10 @@ def extract_frame(
         "-i", str(video_path),
         "-frames:v", "1",
         "-vf", f"scale={width}:-2",
+        # Some frames carry a limited-range colour tag that the mjpeg encoder
+        # refuses ("Non full-range YUV is non-standard"), failing the whole
+        # extraction. Forcing the JPEG-range pixel format accepts them all.
+        "-pix_fmt", "yuvj420p",
         "-q:v", "2",
         "-y", str(output_path),
     ])
