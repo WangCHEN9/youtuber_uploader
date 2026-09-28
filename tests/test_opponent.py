@@ -56,23 +56,44 @@ def test_two_different_opponents_give_two_different_thumbnails(hero, tmp_path):
 
 
 def test_the_opponent_is_smaller_than_the_hero():
-    assert 0.4 < OPPONENT_SCALE < 1.0
+    """Smaller, but genuinely a second subject rather than a background shape."""
+    assert 0.7 < OPPONENT_SCALE < 1.0
 
 
 def test_the_opponent_is_darkened_not_hidden():
-    """Darkening keeps the silhouette readable; hiding it defeats the purpose."""
-    assert 0.2 < OPPONENT_DARKEN < 0.8
+    """Darkening separates the two heroes; hiding one defeats the purpose."""
+    assert 0.6 < OPPONENT_DARKEN < 0.9
 
 
-def test_the_opponent_clears_the_badge_column():
-    """Badges sit on the left edge. An opponent centred there is half-covered.
+def test_badges_leave_the_left_column_when_an_opponent_is_present():
+    """With two heroes the left column belongs to the opponent.
 
-    Regression: at 0.20 the opponent's face landed behind a badge.
+    The first design kept the big diagonal badge stack and tucked the opponent
+    behind it. Badges now shrink into a bottom row instead.
     """
-    from ytupload.splash import BADGE_MARGIN_X, BADGE_X_STEP
+    from ytupload.splash import BADGE_DIAMETERS, BADGE_ROW_DIAMETER, BADGE_ROW_Y
 
-    badge_right_edge = BADGE_MARGIN_X + BADGE_X_STEP + 0.19  # ~one badge wide
-    assert OPPONENT_CENTRE_X > badge_right_edge
+    assert BADGE_ROW_DIAMETER < min(BADGE_DIAMETERS.values())
+    assert BADGE_ROW_Y > 0.6, "the badge row belongs at the bottom, clear of both heroes"
+
+
+def test_the_two_heroes_occupy_opposite_halves():
+    """Two thumbnails of the same hero only differ if the frame itself differs.
+
+    Regression: the opponent used to be small, dark and behind the badges. It
+    changed about 8% of the pixels and two Mars thumbnails still looked
+    identical at sidebar size.
+    """
+    from ytupload.splash import HERO_CENTRE_X_VERSUS
+
+    assert OPPONENT_CENTRE_X < 0.4
+    assert HERO_CENTRE_X_VERSUS > 0.6
+    assert HERO_CENTRE_X_VERSUS - OPPONENT_CENTRE_X > 0.35
+
+
+def test_the_opponent_is_bright_enough_to_identify():
+    """Darkened to a silhouette, the opponent adds nothing a viewer can read."""
+    assert OPPONENT_DARKEN >= 0.65
 
 
 def test_the_hero_still_dominates_the_right_half(hero, opponent, tmp_path):

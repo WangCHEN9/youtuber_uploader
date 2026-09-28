@@ -67,8 +67,21 @@ If several captures are new, ask which one. Never assume the newest is the one m
 - **`midgame.jpg`** — a teamfight or push, typically. Good thumbnail material.
 - **`laning.jpg`** — the early lane, which shows what you were up against.
 
-From these, work out: **your hero**, the **enemy offlane matchup**, the **result**,
-and the **final score**. If the capture starts mid-game or the end screen is missing,
+From these, work out: **your hero**, the **lane opponents** and the **result**.
+
+**A hero appearing near the lane does not mean they laned there.** Nature's
+Prophet has a global teleport and turns up everywhere; smoke ganks, rotations and
+rune fights put anyone on screen for a few seconds. A published title claimed a
+"double ranged" lane on exactly this mistake, and it was wrong.
+
+To call a matchup, the hero has to be there **repeatedly across the laning
+phase** — sample several frames minutes apart, not one. If that is not clear,
+**ask, or write a title that does not mention the lane at all.** A stat or a
+claim about the hero works without knowing who was in the lane:
+
+```
+Mars Offlane, 206 Last Hits
+``` If the capture starts mid-game or the end screen is missing,
 say what you could and could not determine.
 
 **Always show the user what you concluded before using it.** Misreading a portrait is

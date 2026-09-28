@@ -182,7 +182,14 @@ def make_splash_thumbnail(
         canvas = _compose_cutout(art, THUMBNAIL_SIZE, accent, opponent_art_path)
 
     return _finish(
-        canvas, output_path, badge_paths, accent, headline, subtitle, brand_path
+        canvas,
+        output_path,
+        badge_paths,
+        accent,
+        headline,
+        subtitle,
+        brand_path,
+        versus=opponent_art_path is not None,
     )
 
 
@@ -236,10 +243,12 @@ def _compose_cutout(
     # Hero fills the frame vertically and sits right of centre, leaving the left
     # third clear for badges.
     art = _trim_transparent(art)
-    target_height = int(height * 1.14)
+    versus = opponent_art_path is not None
+    target_height = int(height * (1.14 * (HERO_SCALE_VERSUS if versus else 1.0)))
     scale = target_height / art.height
     art = art.resize((max(int(art.width * scale), 1), target_height), Image.LANCZOS)
-    art_x = int(width * 0.56) - art.width // 2
+    centre = HERO_CENTRE_X_VERSUS if versus else HERO_CENTRE_X_SOLO
+    art_x = int(width * centre) - art.width // 2
     art_y = height - art.height + int(height * 0.07)
 
     # Two halos under the hero: a wide soft one for atmosphere, a tight bright one
@@ -255,18 +264,28 @@ def _compose_cutout(
     return canvas
 
 
-#: The lane opponent, relative to the player's hero. Smaller and darker, so the
-#: pair reads as protagonist and opposition rather than two equal subjects.
+#: With an opponent, the frame becomes a two-hero split rather than one hero with
+#: something tucked behind the badges.
 #:
-#: The horizontal position is a compromise: the badges occupy the left edge, and
-#: the player's hero starts around 40% across, so the opponent's head has to land
-#: in the gap between them. Moving it further left buries the face behind a badge.
-OPPONENT_SCALE = 0.62
-#: Heroes whose art is already dark (Nature's Prophet, Shadow Fiend) disappear
-#: entirely at a heavier setting, so this is tuned for the darkest of them rather
-#: than the brightest.
-OPPONENT_DARKEN = 0.58
-OPPONENT_CENTRE_X = 0.30
+#: A first attempt kept the hero at full size and put the opponent small, dark and
+#: behind the badge column. It changed about 8% of the pixels, all of them dark,
+#: and two thumbnails of the same hero still looked identical at sidebar size. To
+#: distinguish them the *dominant* impression has to change, which means the
+#: opponent has to be genuinely half the picture.
+OPPONENT_SCALE = 0.88
+OPPONENT_DARKEN = 0.72
+OPPONENT_CENTRE_X = 0.24
+
+#: Where the player's hero sits once an opponent shares the frame.
+HERO_CENTRE_X_SOLO = 0.56
+HERO_CENTRE_X_VERSUS = 0.76
+HERO_SCALE_VERSUS = 1.02
+
+#: With both heroes present the left column is occupied, so badges become a small
+#: horizontal row along the bottom-left instead.
+BADGE_ROW_DIAMETER = 0.155
+BADGE_ROW_Y = 0.80
+BADGE_ROW_GAP = 0.012
 
 
 def _place_opponent(
@@ -282,7 +301,7 @@ def _place_opponent(
 
     width, height = size
     art = _trim_transparent(art)
-    target_height = int(height * 1.14 * OPPONENT_SCALE)
+    target_height = int(height * 1.10 * OPPONENT_SCALE)
     scale = target_height / art.height
     art = art.resize((max(int(art.width * scale), 1), target_height), Image.LANCZOS)
 
@@ -344,17 +363,28 @@ def _finish(
     headline: Optional[str],
     subtitle: Optional[str],
     brand_path: Optional[Path] = None,
+    versus: bool = False,
 ) -> Path:
     """Badges, brand mark, grade, optional text and save. Shared by both paths."""
     width, height = THUMBNAIL_SIZE
 
     wanted = list(badge_paths[:3])  # More than three stops reading as a set.
-    diameter = int(height * BADGE_DIAMETERS.get(len(wanted), 0.25))
+    # With two heroes the left column belongs to the opponent, so badges shrink
+    # into a row along the bottom instead of a large diagonal stack.
+    diameter = int(
+        height * (BADGE_ROW_DIAMETER if versus else BADGE_DIAMETERS.get(len(wanted), 0.25))
+    )
     badges: List[Image.Image] = [
         _circular_badge(Path(icon_path), diameter, accent) for icon_path in wanted
     ]
 
-    if badges:
+    if badges and versus:
+        gap = int(width * BADGE_ROW_GAP)
+        left = int(width * BADGE_MARGIN_X)
+        top = int(height * BADGE_ROW_Y)
+        for index, badge in enumerate(badges):
+            canvas.alpha_composite(badge, (left + index * (diameter + gap), top))
+    elif badges:
         scrim = Image.new("RGBA", THUMBNAIL_SIZE, (0, 0, 0, 0))
         scrim_draw = ImageDraw.Draw(scrim)
         for column in range(int(width * 0.48)):
