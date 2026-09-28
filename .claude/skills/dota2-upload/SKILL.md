@@ -140,13 +140,22 @@ Two shapes work:
 ```
 Hero + role, then a hook about the lane
   Mars Offlane Into a Lane That Shouldn't Work     (44)
-  Mars Into a Double Ranged Offlane                (33)
   Tidehunter Into a Double Melee Lane              (35)
 
 A claim about the hero or the pick
   Dawnbreaker Is Just a Winning Pick Right Now     (44)
   The Offlane Matchup Nobody Wants                 (32)
+
+How the hero actually plays
+  Every Fight Starts With Arena of Blood           (38)
 ```
+
+**A statistic is not a hook.** "Mars Offlane, 206 Last Hits" was tried and
+rejected: a number is a fact, and facts do not make anyone curious. Stats belong
+in the description, where someone already watching can appreciate them.
+
+Naming a signature ability is often enough to identify the hero for a Dota
+audience, so a title can skip the hero name and still be searchable.
 
 A claim about a hero's strength is fine and is **not** a spoiler: it is about the
 hero in the current patch, not about who won this game. Anchoring it with "right
