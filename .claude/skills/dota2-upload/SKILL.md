@@ -67,8 +67,21 @@ If several captures are new, ask which one. Never assume the newest is the one m
 - **`midgame.jpg`** — a teamfight or push, typically. Good thumbnail material.
 - **`laning.jpg`** — the early lane, which shows what you were up against.
 
-From these, work out: **your hero**, the **enemy offlane matchup**, the **result**,
-and the **final score**. If the capture starts mid-game or the end screen is missing,
+From these, work out: **your hero**, the **lane opponents** and the **result**.
+
+**Never name an opponent hero in the title or the description.** The user has
+asked for this directly. The thumbnail may show one — a picture makes no factual
+claim the way a sentence does — but the words stay about the user's own hero.
+
+This also sidesteps a trap worth knowing about. **A hero appearing near the lane
+does not mean they laned there.** Nature's Prophet has a global teleport and
+turns up everywhere; smoke ganks, rotations and rune fights put anyone on screen
+for a few seconds. A published title claimed a "double ranged" lane on exactly
+that mistake and was wrong.
+
+For the thumbnail's `--vs`, the hero should be present **repeatedly across the
+laning phase** — sample several frames minutes apart, not one. If it is not
+clear, ask rather than guess. If the capture starts mid-game or the end screen is missing,
 say what you could and could not determine.
 
 **Always show the user what you concluded before using it.** Misreading a portrait is
@@ -118,15 +131,45 @@ both spoil it. Tease the matchup and the hero instead.
 **Title** — aim for **40–50 characters** (hard cap is 100, but search truncates near
 70). Front-load hero and role, then the hook. No all-caps, no manufactured outrage.
 
-Good:
+**A title is a hook, not a listing.** `Hero Offlane vs Hero` is a caption: it
+states who was in the lane and gives nobody a reason to click. This mistake has
+been made twice, so check any draft against the shapes below before using it.
+
+Two shapes work:
+
 ```
-Mars Offlane Into a Lane That Shouldn't Work     (44)
-Tidehunter Into a Double Melee Lane              (35)
-The Offlane Matchup Nobody Wants                 (32)
+Hero + role, then a hook about the lane
+  Mars Offlane Into a Lane That Shouldn't Work     (44)
+  Tidehunter Into a Double Melee Lane              (35)
+
+A claim about the hero or the pick
+  Dawnbreaker Is Just a Winning Pick Right Now     (44)
+  The Offlane Matchup Nobody Wants                 (32)
+
+How the hero actually plays
+  Every Fight Starts With Arena of Blood           (38)
 ```
 
-Avoid: `Dota 2 2026.09.25 - 21.59.04.14`, `INSANE GAME!!! MUST WATCH`, and anything
-naming the outcome.
+**A statistic is not a hook.** "Mars Offlane, 206 Last Hits" was tried and
+rejected: a number is a fact, and facts do not make anyone curious. Stats belong
+in the description, where someone already watching can appreciate them.
+
+Naming a signature ability is often enough to identify the hero for a Dota
+audience, so a title can skip the hero name and still be searchable.
+
+A claim about a hero's strength is fine and is **not** a spoiler: it is about the
+hero in the current patch, not about who won this game. Anchoring it with "right
+now" is honest, because pick strength is patch-dependent.
+
+**Vary the shape between consecutive uploads.** Two videos in a row titled
+"X Is a Winning Pick" reads as a template.
+
+Avoid: `Dota 2 2026.09.25 - 21.59.04.14`, `INSANE GAME!!! MUST WATCH`, anything
+naming the outcome, and `Hero vs Hero` listings.
+
+**Only name the carry.** In a lane with a carry and a support, the support does
+not belong in the title: it costs characters and is not the matchup anyone cares
+about.
 
 **Description** — write to a temp file, pass `--description-file`.
 
@@ -150,7 +193,8 @@ someone talking about their game.
 Structure:
 
 1. **Hook, 1–2 sentences.** Only the first ~150 characters show in search, so put
-   the hero and the matchup there. **Never the outcome** - the same rule as the
+   the user's hero and role there. **Never an opponent hero, and never the
+   outcome** - the same rule as the
    title. This line used to say "the matchup and the outcome", contradicting the
    rule three paragraphs above it.
 2. **A short paragraph** on how the game went.
@@ -186,10 +230,17 @@ Let the art carry the frame and use circular badges to say what the video is abo
 - **A badge that cannot be found is skipped with a warning, and the thumbnail is
   still produced** with one fewer circle. Read the command output; it is easy to
   miss and the image looks fine on its own.
-- **Ability slugs are not always `hero_abilityname`.** Mars's spear is
-  `mars_spear`, not `mars_spear_of_mars`. Mars: `mars_spear`,
-  `mars_gods_rebuke`, `mars_bulwark`, `mars_arena_of_blood`. When unsure, run
-  the thumbnail command and check for the warning before using the result.
+- **Ability slugs are not always `hero_abilityname`.** They are frozen at
+  whatever the ability was called internally, which is often not its display
+  name. Mars's spear is `mars_spear`, not `mars_spear_of_mars`; Dawnbreaker's
+  Starbreaker is `dawnbreaker_fire_wreath`.
+  - Mars: `mars_spear`, `mars_gods_rebuke`, `mars_bulwark`,
+    `mars_arena_of_blood`
+  - Dawnbreaker: `dawnbreaker_fire_wreath`, `dawnbreaker_celestial_hammer`,
+    `dawnbreaker_luminosity`, `dawnbreaker_solar_guardian`
+
+  When unsure, run the thumbnail command and check for the warning before using
+  the result.
 - The background colour is sampled from the hero art, so each hero themes itself.
 - `--brand-image` puts the channel mascot in the bottom-right corner, diagonally
   opposite the badges. Use it on every thumbnail for a consistent identity.

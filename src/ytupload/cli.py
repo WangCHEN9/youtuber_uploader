@@ -383,6 +383,13 @@ def _hero_thumbnail(args: argparse.Namespace, headline: str) -> int:
     default_name = (args.hero or art.stem).lower().replace(" ", "-")
     output_path = Path(args.out or f"{default_name}-thumb.jpg")
 
+    opponent = None
+    if getattr(args, "vs", None):
+        try:
+            opponent = fetch_hero_art(args.vs)
+        except HeroArtError as error:
+            print(f"warning: {error}", file=sys.stderr)
+
     badges = []
     for badge_name in _split_tags(args.badges):
         try:
@@ -402,6 +409,7 @@ def _hero_thumbnail(args: argparse.Namespace, headline: str) -> int:
                 headline=args.headline if args.with_text else None,
                 subtitle=args.subtitle if args.with_text else None,
                 brand_path=Path(args.brand_image) if args.brand_image else None,
+                opponent_art_path=opponent,
             )
         else:
             result = make_hero_thumbnail(
@@ -734,6 +742,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--badges",
         help="comma-separated items or abilities to show as circular badges, "
         "e.g. \"blink,mars_arena_of_blood\". Up to three.",
+    )
+    thumbnail.add_argument(
+        "--vs",
+        help="the lane opponent, e.g. \"Skywrath Mage\". Placed smaller and darker "
+        "on the left. The matchup changes every game, so this is what stops a "
+        "one-hero channel's thumbnails all looking the same.",
     )
     thumbnail.add_argument(
         "--brand-image",
