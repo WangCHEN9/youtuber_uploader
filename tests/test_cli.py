@@ -45,6 +45,38 @@ def test_thumbnail_without_hero_or_video_is_rejected():
         cli.main(["thumbnail"])
 
 
+def _thumbnail_args(*extra):
+    return cli.build_parser().parse_args(["thumbnail", "--hero", "Mars", *extra])
+
+
+def test_hero_art_prefers_a_local_wallpaper(tmp_path):
+    wallpaper = tmp_path / "mars.jpg"
+    wallpaper.write_bytes(b"x")
+    assert cli._resolve_hero_art(_thumbnail_args(), wallpaper_dir=tmp_path) == wallpaper
+
+
+def test_no_wallpaper_flag_skips_the_wallpaper(tmp_path, monkeypatch):
+    (tmp_path / "mars.jpg").write_bytes(b"x")
+    render = tmp_path / "render.png"
+    monkeypatch.setattr(cli, "fetch_hero_art", lambda hero: render)
+    args = _thumbnail_args("--no-wallpaper")
+    assert cli._resolve_hero_art(args, wallpaper_dir=tmp_path) == render
+
+
+def test_hero_art_falls_back_to_the_render(tmp_path, monkeypatch):
+    render = tmp_path / "render.png"
+    monkeypatch.setattr(cli, "fetch_hero_art", lambda hero: render)
+    assert cli._resolve_hero_art(_thumbnail_args(), wallpaper_dir=tmp_path) == render
+
+
+def test_explicit_hero_image_beats_the_wallpaper(tmp_path):
+    (tmp_path / "mars.jpg").write_bytes(b"x")
+    chosen = tmp_path / "chosen.png"
+    chosen.write_bytes(b"x")
+    args = _thumbnail_args("--hero-image", str(chosen))
+    assert cli._resolve_hero_art(args, wallpaper_dir=tmp_path) == chosen
+
+
 def test_upload_parses_a_full_argument_set():
     args = cli.build_parser().parse_args([
         "upload", "v.mp4",

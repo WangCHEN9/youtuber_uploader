@@ -114,6 +114,17 @@ A full match is 40+ minutes. To cut it to a watchable highlight edit:
   rather than one padded with farming. A 34-minute match came out at 23.2 rather
   than 25, which is correct behaviour, not a bug. Say so rather than re-running
   with different settings to hit the number.
+- **25 minutes is a starting point, not a limit.** The user said so directly.
+  Raise `--target-minutes` when the dry-run plan is squeezing a game that has
+  more to show. Signs to look for:
+  - a long match (45+ minutes);
+  - a plan full of scenes near the ~40s floor, which is barely more than the
+    padding around a single fight;
+  - big fights dropped entirely.
+
+  A 57-minute game at 25 came out as 17 scenes of ~45s each. Re-run the dry run
+  at 30-35 and show the user both plans. Raising the cap never pads a quiet game,
+  because the target is still a cap, not a quota.
 - Analysis takes ~2 minutes; rendering a 25-minute 1440p60 edit takes a few
   minutes on the GPU.
 - Each kept scene carries 25s of run-up and 15s of aftermath, and nearby action
@@ -227,6 +238,12 @@ Let the art carry the frame and use circular badges to say what the video is abo
 - `--badges` takes up to three items or abilities. Items are plain names (`blink`,
   `black king bar`, `assault cuirass`); abilities use their internal name. Pick
   the ones the game actually turned on.
+- **Prefer items over abilities.** The user asked for this: abilities are the same
+  every game for a hero, so two Dawnbreaker thumbnails with the same three skill
+  icons look identical, whereas the build is what made *this* game. Read the
+  inventory from a late frame (before the last 20%, not the end screen), and
+  confirm the item reading with the user - inventory icons are small and easy to
+  misread. Fall back to abilities only when the items cannot be read.
 - **A badge that cannot be found is skipped with a warning, and the thumbnail is
   still produced** with one fewer circle. Read the command output; it is easy to
   miss and the image looks fine on its own.
@@ -256,6 +273,13 @@ impact. If the user has such an image, pass it with `--hero-image` — an opaque
 rectangular image is detected and used full-bleed, while a transparent PNG is
 composited as a cut-out with rim lighting. Both get the vignette, the sampled
 accent colour and the badges.
+
+**Collected wallpapers live in `wallpapers/`** at the repo root, one per hero, named
+after the hero (`mars.jpg`, `shadow_fiend.png`) or its Valve slug (`nevermore.jpg`).
+`--hero` uses one automatically when it exists and prints `using wallpaper:`; pass
+`--no-wallpaper` to get the stock render instead. The folder is gitignored on
+purpose: it is Valve's art, kept local only. When a hero has no wallpaper yet,
+offer to find official art for it and show it to the user before saving it.
 
 #### Writing chapter labels
 
@@ -330,6 +354,15 @@ Get explicit approval, then re-run without `--dry-run`.
 `--archive` moves the file to `...\Dota 2\uploaded\` once the upload succeeds. It is a
 same-drive rename, so it is instant even at 8 GB, and the new location is recorded so
 it is never re-uploaded.
+
+**When you uploaded a cut, `--archive` only moves the cut.** The user wants the
+original capture and the `<name> - chapters.txt` moved into `uploaded\` too, once the
+upload has succeeded. Use the same no-overwrite move:
+
+```bash
+.venv/Scripts/python.exe -c "from ytupload.archive import archive_video; \
+  [print(archive_video(p)) for p in [r'<original.mp4>', r'<name> - chapters.txt']]"
+```
 
 Uploads are resumable and print progress. An 8 GB capture takes a while — that is
 normal, not a hang. **If interrupted, re-running the same command resumes** from where

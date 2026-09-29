@@ -132,6 +132,12 @@ These were deliberate. If you are about to undo one, say why first.
 - **The bisection ceiling must sit strictly above max(interest).** The threshold
   comparison is `>=`, and the returned bound is `high`, so a ceiling *at* the
   maximum lets an over-budget cut be returned when nothing fits. A test covers it.
+- **The ending is in every edit.** The user's rule: a match video must show how
+  it ended. The last 90s of play (`FINALE_SECONDS`) are reserved before anything
+  is ranked, and laning gives way first if the budget is tiny. The end of play
+  is found from the HUD disappearing (`detect_game_end`), not a fixed tail
+  trim: a 40s trim once cut a 57-minute game off eight seconds before the
+  Ancient fell, and the uploaded video never showed the win.
 - **The target is a cap, not a quota.** Never pad an edit with filler to reach the
   requested runtime; a quiet match should produce a shorter video.
 - **Splash branches on transparency.** An opaque image (a wallpaper, promo art, a

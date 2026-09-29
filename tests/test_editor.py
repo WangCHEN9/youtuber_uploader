@@ -8,7 +8,9 @@ edit rather than an error.
 import pytest
 
 from ytupload.editor import (
+    FINALE_SECONDS,
     LEAD_IN,
+    VICTORY_SECONDS,
     MIN_SEGMENT,
     PREGAME_SECONDS,
     Analysis,
@@ -134,11 +136,12 @@ def test_segments_never_leave_the_requested_range():
 # ----------------------------------------------------------------------- plan
 
 
-def _analysis(duration=2400.0, game_start=100.0, peaks=()):
+def _analysis(duration=2400.0, game_start=100.0, peaks=(), game_end=None):
     return Analysis(
         duration=duration,
         game_start=game_start,
         interest=_curve(int(duration), list(peaks)),
+        game_end=game_end,
     )
 
 
@@ -257,7 +260,97 @@ def test_the_target_is_never_exceeded_when_nothing_fits():
     segments = plan(analysis, target_minutes=11, lane_minutes=10)
     total = sum(b - a for a, b in segments)
     assert total <= 11 * 60 + 1
-    assert len(segments) == 1  # laning only
+    assert len(segments) == 2  # laning and the finale, no highlights
+
+
+# ----------------------------------------------------------------- the ending
+
+
+def test_the_ending_is_always_kept():
+    """The user's rule: the game-winning (or losing) push is in every edit.
+
+    Regression: a fixed 40s tail trim cut a 57-minute game off eight seconds
+    before the Ancient fell, and the uploaded video never showed the win.
+    """
+    analysis = _analysis(duration=3428.0, game_end=3395.0, peaks=[(1500, 8.0)])
+    segments = plan(analysis, target_minutes=25, lane_minutes=10)
+    assert segments[-1][1] == pytest.approx(3395.0 + VICTORY_SECONDS)
+    assert segments[-1][1] - segments[-1][0] >= FINALE_SECONDS
+
+
+def test_the_ending_is_kept_even_in_a_quiet_finish():
+    """No interest at the end must not mean no ending."""
+    peaks = [(t, 8.0) for t in range(800, 1600, 100)]
+    analysis = _analysis(duration=2400.0, game_end=2350.0, peaks=peaks)
+    segments = plan(analysis, target_minutes=25, lane_minutes=10)
+    assert segments[-1][1] == pytest.approx(2350.0 + VICTORY_SECONDS)
+
+
+def test_the_ending_survives_a_tiny_budget():
+    """The finale is reserved first, so it is laning that gives way, not the ending."""
+    analysis = _analysis(duration=2400.0, game_end=2350.0)
+    segments = plan(analysis, target_minutes=5, lane_minutes=10)
+    assert segments[-1][1] == pytest.approx(2350.0 + VICTORY_SECONDS)
+    assert sum(b - a for a, b in segments) <= 5 * 60 + 1
+
+
+def test_the_ending_never_runs_past_the_recording():
+    analysis = _analysis(duration=2400.0, game_end=2398.0)
+    segments = plan(analysis, target_minutes=25, lane_minutes=10)
+    assert segments[-1][1] <= 2400.0
+
+
+def test_nothing_after_the_ending_is_kept():
+    """After the Ancient falls it is scoreboards and reward screens."""
+    analysis = _analysis(duration=2400.0, game_end=2300.0, peaks=[(2380, 9.0)])
+    segments = plan(analysis, target_minutes=25, lane_minutes=10)
+    assert all(b <= 2300.0 + VICTORY_SECONDS for a, b in segments)
+
+
+def test_a_highlight_touching_the_finale_merges_into_it():
+    """A fight that runs into the final push is one scene, not two cuts."""
+    # The finale starts at 2360 - 90 = 2270; this fight's aftermath runs into it.
+    analysis = _analysis(duration=2400.0, game_end=2350.0, peaks=[(2262, 9.0)])
+    segments = plan(analysis, target_minutes=25, lane_minutes=10)
+    assert segments[-1][0] < 2270.0  # the fight's run-up became part of the finale
+    for earlier, later in zip(segments, segments[1:]):
+        assert earlier[1] < later[0]
+
+
+def _strip(tmp_path, name, hud):
+    """A fake score-strip crop: a dark panel, with bright digits only when the HUD is up."""
+    from PIL import Image, ImageDraw
+
+    image = Image.new("L", (150, 32), 30)
+    if hud:
+        ImageDraw.Draw(image).rectangle((60, 10, 90, 20), fill=255)
+    path = tmp_path / f"{name}.jpg"
+    image.save(path)
+    return path
+
+
+def test_game_end_is_the_last_sustained_hud(tmp_path):
+    from ytupload.editor import detect_game_end
+
+    samples = [(float(t), _strip(tmp_path, t, hud=100 <= t <= 200)) for t in range(0, 260, 2)]
+    assert detect_game_end(samples) == pytest.approx(200.0)
+
+
+def test_game_end_ignores_a_stray_hud_like_frame_in_the_menus(tmp_path):
+    from ytupload.editor import detect_game_end
+
+    samples = [
+        (float(t), _strip(tmp_path, t, hud=(100 <= t <= 200) or t == 240))
+        for t in range(0, 260, 2)
+    ]
+    assert detect_game_end(samples) == pytest.approx(200.0)
+
+
+def test_game_end_is_none_without_a_hud(tmp_path):
+    from ytupload.editor import detect_game_end
+
+    samples = [(float(t), _strip(tmp_path, t, hud=False)) for t in range(0, 60, 2)]
+    assert detect_game_end(samples) is None
 
 
 def test_a_bitrate_ceiling_exists_and_is_sane():
