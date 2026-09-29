@@ -331,6 +331,15 @@ Get explicit approval, then re-run without `--dry-run`.
 same-drive rename, so it is instant even at 8 GB, and the new location is recorded so
 it is never re-uploaded.
 
+**When you uploaded a cut, `--archive` only moves the cut.** The user wants the
+original capture and the `<name> - chapters.txt` moved into `uploaded\` too, once the
+upload has succeeded. Use the same no-overwrite move:
+
+```bash
+.venv/Scripts/python.exe -c "from ytupload.archive import archive_video; \
+  [print(archive_video(p)) for p in [r'<original.mp4>', r'<name> - chapters.txt']]"
+```
+
 Uploads are resumable and print progress. An 8 GB capture takes a while — that is
 normal, not a hang. **If interrupted, re-running the same command resumes** from where
 it stopped; the session stays valid about a week.
