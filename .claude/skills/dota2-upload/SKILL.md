@@ -227,6 +227,12 @@ Let the art carry the frame and use circular badges to say what the video is abo
 - `--badges` takes up to three items or abilities. Items are plain names (`blink`,
   `black king bar`, `assault cuirass`); abilities use their internal name. Pick
   the ones the game actually turned on.
+- **Prefer items over abilities.** The user asked for this: abilities are the same
+  every game for a hero, so two Dawnbreaker thumbnails with the same three skill
+  icons look identical, whereas the build is what made *this* game. Read the
+  inventory from a late frame (before the last 20%, not the end screen), and
+  confirm the item reading with the user - inventory icons are small and easy to
+  misread. Fall back to abilities only when the items cannot be read.
 - **A badge that cannot be found is skipped with a warning, and the thumbnail is
   still produced** with one fewer circle. Read the command output; it is easy to
   miss and the image looks fine on its own.
