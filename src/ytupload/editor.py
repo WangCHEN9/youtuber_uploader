@@ -64,6 +64,16 @@ PAD_AFTER = 15.0
 #: rapid cuts. With the padding above, events within roughly a minute merge.
 MERGE_GAP = 25.0
 
+#: The run-up to the end of play, kept in every edit regardless of the target.
+#: The user's rule: a match video must show how it ended. It is reserved before
+#: anything is ranked, because the final push is often quieter on the kill
+#: counter than the fights before it and would otherwise lose the ranking.
+FINALE_SECONDS = 90.0
+
+#: Kept after the HUD disappears. The score strip dims the moment the Ancient
+#: falls, so this is the explosion and the "Victory" banner, not the menus.
+VICTORY_SECONDS = 10.0
+
 AUDIO_RATE = 8000
 
 #: YouTube's recommended upload bitrate for 1440p60. Exceeding it costs upload
@@ -82,6 +92,9 @@ class Analysis:
     duration: float
     game_start: float
     interest: List[float]
+    #: When the Ancient fell, or None if no HUD was found (then a fixed tail trim
+    #: is used instead).
+    game_end: Optional[float] = None
 
 
 # --------------------------------------------------------------------- audio
@@ -194,6 +207,50 @@ def _bands(image):
     return out
 
 
+def _looks_like_hud(path: Path) -> Optional[bool]:
+    """Whether a score-strip crop shows the in-game HUD; None if unreadable.
+
+    The strip is a dark panel carrying a little bright text. Loading screens,
+    the victory banner (which dims it) and the post-game menus all fail this.
+    """
+    from PIL import Image
+
+    try:
+        pixels = list(Image.open(path).convert("L").get_flattened_data())
+    except OSError:
+        return None
+    count = len(pixels)
+    mean = sum(pixels) / count
+    bright = sum(1 for value in pixels if value > 200) / count
+    return mean < 110 and 0.004 < bright < 0.18
+
+
+def detect_game_end(samples: Sequence[Tuple[float, Path]]) -> Optional[float]:
+    """Return when play ended: the last frame of the last sustained HUD run.
+
+    The mirror of :func:`detect_game_start`. Found from the HUD rather than by
+    trimming a fixed tail, because how long the recording runs on after the
+    Ancient falls varies, and a fixed trim once cut the winning push off.
+    """
+    run_end: Optional[float] = None
+    run_length = 0
+    for timestamp, path in reversed(samples):
+        looks_like_hud = _looks_like_hud(path)
+        if looks_like_hud is None:
+            continue
+
+        if looks_like_hud:
+            if run_end is None:
+                run_end = timestamp
+            run_length += 1
+            if run_length >= 8:  # sustained, not one lucky menu frame
+                return run_end
+        else:
+            run_end = None
+            run_length = 0
+    return None
+
+
 def detect_game_start(samples: Sequence[Tuple[float, Path]]) -> Optional[float]:
     """Return the estimated time of game clock 0:00.
 
@@ -202,19 +259,12 @@ def detect_game_start(samples: Sequence[Tuple[float, Path]]) -> Optional[float]:
     of such frames is the moment the HUD appears; creeps spawn
     ``PREGAME_SECONDS`` later.
     """
-    from PIL import Image
-
     run_start: Optional[float] = None
     run_length = 0
     for timestamp, path in samples:
-        try:
-            pixels = list(Image.open(path).convert("L").get_flattened_data())
-        except OSError:
+        looks_like_hud = _looks_like_hud(path)
+        if looks_like_hud is None:
             continue
-        count = len(pixels)
-        mean = sum(pixels) / count
-        bright = sum(1 for value in pixels if value > 200) / count
-        looks_like_hud = mean < 110 and 0.004 < bright < 0.18
 
         if looks_like_hud:
             if run_start is None:
@@ -286,6 +336,7 @@ def analyse(
     if game_start is None:
         # No HUD found: fall back to the start rather than refusing to work.
         game_start = 0.0
+    game_end = detect_game_end(samples)
     activity = spread_activity(score_activity(samples, duration))
 
     length = int(duration)
@@ -294,7 +345,9 @@ def analyse(
         + (activity[i] if i < len(activity) else 0.0) * 2.0
         for i in range(length)
     ]
-    return Analysis(duration=duration, game_start=game_start, interest=interest)
+    return Analysis(
+        duration=duration, game_start=game_start, interest=interest, game_end=game_end
+    )
 
 
 # --------------------------------------------------------------------- planning
@@ -329,27 +382,38 @@ def plan(
 ) -> List[Segment]:
     """Choose which parts to keep.
 
-    The laning phase is kept whole from just before the horn. The rest of the
-    match is ranked by interest and the threshold is solved by bisection so the
-    total lands on the target.
+    The finale - the run-up to the end of play - is reserved first and is in
+    every edit. The laning phase is kept whole from just before the horn, unless
+    the finale leaves too little room, in which case laning is what gives way.
+    What lies between is ranked by interest and the threshold is solved by
+    bisection so the total lands on the target.
 
-    *tail_trim* drops the closing seconds, which are the post-game scoreboard
-    and reward screens rather than play.
+    Play ends at ``analysis.game_end`` when the HUD was found. Otherwise
+    *tail_trim* drops a fixed tail, which is the post-game scoreboard and
+    reward screens rather than play.
     """
     start = max(analysis.game_start - LEAD_IN, 0.0)
     lane_end = min(analysis.game_start + lane_minutes * 60, analysis.duration)
-    end = max(analysis.duration - tail_trim, lane_end)
+    if analysis.game_end is not None:
+        end = min(analysis.game_end + VICTORY_SECONDS, analysis.duration)
+    else:
+        end = analysis.duration - tail_trim
+    end = max(end, lane_end)
     target = target_minutes * 60
 
-    if lane_end - start >= target:
-        # The laning phase alone already fills the budget.
-        return [(start, min(start + target, analysis.duration))]
+    finale_start = max(end - FINALE_SECONDS, lane_end, end - target)
+    finale = [(finale_start, end)] if end > finale_start else []
+    finale_length = end - finale_start
 
-    budget = target - (lane_end - start)
+    if lane_end - start >= target - finale_length:
+        # Laning and the finale already fill the budget.
+        return [(start, start + max(target - finale_length, 0.0))] + finale
+
+    budget = target - (lane_end - start) - finale_length
 
     def fits(threshold: float) -> bool:
         """Whether this threshold produces an edit within the budget."""
-        segments = _segments_above(analysis.interest, threshold, lane_end, end)
+        segments = _segments_above(analysis.interest, threshold, lane_end, finale_start)
         return sum(b - a for a, b in segments) <= budget
 
     # `high` must be a threshold that definitely fits, because it is what gets
@@ -365,7 +429,12 @@ def plan(
         else:
             low = middle
 
-    return [(start, lane_end)] + _segments_above(analysis.interest, high, lane_end, end)
+    highlights = _segments_above(analysis.interest, high, lane_end, finale_start)
+    if highlights and finale and highlights[-1][1] >= finale_start:
+        # A fight running into the final push is one scene. They only touch, so
+        # merging adds no runtime.
+        finale = [(highlights.pop()[0], end)]
+    return [(start, lane_end)] + highlights + finale
 
 
 def describe(segments: Sequence[Segment]) -> str:
