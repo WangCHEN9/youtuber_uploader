@@ -43,7 +43,9 @@ from .heroart import (
     HeroArtError,
     dominant_color,
     fetch_badge_icon,
+    DEFAULT_WALLPAPER_DIR,
     fetch_hero_art,
+    find_wallpaper,
 )
 from .presets import PRESETS
 from .shadowplay import format_capture_date
@@ -368,17 +370,29 @@ def cmd_thumbnail(args: argparse.Namespace) -> int:
     return _frame_thumbnail(args, headline)
 
 
-def _hero_thumbnail(args: argparse.Namespace, headline: str) -> int:
-    """Compose from official hero art. Needs no video and reveals no outcome."""
+def _resolve_hero_art(
+    args: argparse.Namespace, wallpaper_dir: Path = DEFAULT_WALLPAPER_DIR
+) -> Path:
+    """Pick the art: an explicit --hero-image, then a local wallpaper, then the render."""
     if args.hero_image:
         art = Path(args.hero_image)
         if not art.is_file():
             raise SystemExit(f"error: hero image not found: {art}")
-    else:
-        try:
-            art = fetch_hero_art(args.hero)
-        except HeroArtError as error:
-            raise SystemExit(f"error: {error}")
+        return art
+    if not args.no_wallpaper:
+        wallpaper = find_wallpaper(args.hero, wallpaper_dir)
+        if wallpaper:
+            print(f"using wallpaper: {wallpaper}")
+            return wallpaper
+    try:
+        return fetch_hero_art(args.hero)
+    except HeroArtError as error:
+        raise SystemExit(f"error: {error}")
+
+
+def _hero_thumbnail(args: argparse.Namespace, headline: str) -> int:
+    """Compose from official hero art. Needs no video and reveals no outcome."""
+    art = _resolve_hero_art(args)
 
     default_name = (args.hero or art.stem).lower().replace(" ", "-")
     output_path = Path(args.out or f"{default_name}-thumb.jpg")
@@ -727,6 +741,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     thumbnail.add_argument(
         "--hero-image", help="use this image as the hero art instead of downloading"
+    )
+    thumbnail.add_argument(
+        "--no-wallpaper",
+        action="store_true",
+        help=f"ignore any wallpaper in {DEFAULT_WALLPAPER_DIR}/ and use the hero render",
     )
     thumbnail.add_argument(
         "--headline", help="large text (default: the hero name)"

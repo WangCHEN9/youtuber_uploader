@@ -117,6 +117,37 @@ def fetch_hero_art(
     )
 
 
+#: Wallpapers the user collected themselves. Kept local and gitignored: it is
+#: Valve's art, and unlike the CDN cache it cannot be re-downloaded automatically.
+DEFAULT_WALLPAPER_DIR = Path("wallpapers")
+
+_WALLPAPER_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def find_wallpaper(
+    hero_name: str, wallpaper_dir: Path = DEFAULT_WALLPAPER_DIR
+) -> Optional[Path]:
+    """Return a local wallpaper for *hero_name*, or None if there is none.
+
+    Matches the Valve slug (``nevermore``) and the display name written with
+    underscores or hyphens (``shadow_fiend``, ``shadow-fiend``), because a person
+    names the file after the hero they see, not the slug Valve froze.
+    """
+    wallpaper_dir = Path(wallpaper_dir)
+    if not wallpaper_dir.is_dir():
+        return None
+    name = hero_name.strip().lower()
+    stems = {hero_slug(hero_name), re.sub(r"\s+", "_", name), re.sub(r"\s+", "-", name)}
+    for candidate in sorted(wallpaper_dir.iterdir()):
+        if (
+            candidate.is_file()
+            and candidate.suffix.lower() in _WALLPAPER_SUFFIXES
+            and candidate.stem.lower() in stems
+        ):
+            return candidate
+    return None
+
+
 def available_offline(hero_name: str, cache_dir: Path = DEFAULT_CACHE_DIR) -> bool:
     """Whether this hero's art is already cached."""
     return (Path(cache_dir) / f"{hero_slug(hero_name)}.png").is_file()

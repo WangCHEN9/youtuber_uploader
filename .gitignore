@@ -146,6 +146,9 @@ uploaded_files.txt
 # cached hero art (re-downloadable)
 .heroart/
 
+# hand-collected hero wallpapers (Valve's art; kept local, NOT re-downloadable)
+wallpapers/
+
 # cut-analysis cache (regenerable)
 .editcache/
 brand/*.png

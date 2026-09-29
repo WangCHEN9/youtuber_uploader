@@ -263,6 +263,13 @@ rectangular image is detected and used full-bleed, while a transparent PNG is
 composited as a cut-out with rim lighting. Both get the vignette, the sampled
 accent colour and the badges.
 
+**Collected wallpapers live in `wallpapers/`** at the repo root, one per hero, named
+after the hero (`mars.jpg`, `shadow_fiend.png`) or its Valve slug (`nevermore.jpg`).
+`--hero` uses one automatically when it exists and prints `using wallpaper:`; pass
+`--no-wallpaper` to get the stock render instead. The folder is gitignored on
+purpose: it is Valve's art, kept local only. When a hero has no wallpaper yet,
+offer to find official art for it and show it to the user before saving it.
+
 #### Writing chapter labels
 
 `cut` marks each chapter at the cut, so one chapter is one scene and the sections
