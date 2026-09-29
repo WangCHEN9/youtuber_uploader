@@ -114,6 +114,17 @@ A full match is 40+ minutes. To cut it to a watchable highlight edit:
   rather than one padded with farming. A 34-minute match came out at 23.2 rather
   than 25, which is correct behaviour, not a bug. Say so rather than re-running
   with different settings to hit the number.
+- **25 minutes is a starting point, not a limit.** The user said so directly.
+  Raise `--target-minutes` when the dry-run plan is squeezing a game that has
+  more to show. Signs to look for:
+  - a long match (45+ minutes);
+  - a plan full of scenes near the ~40s floor, which is barely more than the
+    padding around a single fight;
+  - big fights dropped entirely.
+
+  A 57-minute game at 25 came out as 17 scenes of ~45s each. Re-run the dry run
+  at 30-35 and show the user both plans. Raising the cap never pads a quiet game,
+  because the target is still a cap, not a quota.
 - Analysis takes ~2 minutes; rendering a 25-minute 1440p60 edit takes a few
   minutes on the GPU.
 - Each kept scene carries 25s of run-up and 15s of aftermath, and nearby action
