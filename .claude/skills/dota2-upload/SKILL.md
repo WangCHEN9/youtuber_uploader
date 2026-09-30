@@ -100,7 +100,11 @@ duoing, so offlane is not a safe assumption there. A duo Dawnbreaker game went u
 other than offlane, **do not pass `--preset dota-offlane`**: it adds offlane / pos 3
 tags, the "Position 3 / offlane" footer and the Offlane playlist. Write the role
 into the title, description and `--tags` yourself instead (e.g. `safe lane`,
-`position 1`, `pos 1`, `carry`), and ask which playlist, if any, it should go in.
+`position 1`, `pos 1`, `carry`).
+
+**Every duo game goes in the `Dota 2 - Duo` playlist**, whatever the role - even an
+offlane duo game. Pass `--playlist "Dota 2 - Duo"`; it overrides the preset's
+Offlane playlist, so it is safe alongside `--preset dota-offlane`.
 
 If you need a different moment, grab it directly:
 
