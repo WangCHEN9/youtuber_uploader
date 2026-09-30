@@ -94,6 +94,14 @@ frames cannot show it. If so, add one line to the description ("This one was a d
 game with a friend.") and a `duo` tag. Do not name or guess which ally the friend
 was; only use a name if the user gives one.
 
+**In a duo game, ask which position they played.** The user plays other roles when
+duoing, so offlane is not a safe assumption there. A duo Dawnbreaker game went up as
+"offlane" when it was safe lane and had to be relabelled after upload. For any role
+other than offlane, **do not pass `--preset dota-offlane`**: it adds offlane / pos 3
+tags, the "Position 3 / offlane" footer and the Offlane playlist. Write the role
+into the title, description and `--tags` yourself instead (e.g. `safe lane`,
+`position 1`, `pos 1`, `carry`), and ask which playlist, if any, it should go in.
+
 If you need a different moment, grab it directly:
 
 ```bash
