@@ -89,6 +89,11 @@ easy, and a confidently wrong hero name in a public title is worse than one ques
 Ask for anything the frames cannot tell you — notable moments, item timings, how the
 game actually felt.
 
+**Ask whether it was a duo game.** The user sometimes queues with a friend, and the
+frames cannot show it. If so, add one line to the description ("This one was a duo
+game with a friend.") and a `duo` tag. Do not name or guess which ally the friend
+was; only use a name if the user gives one.
+
 If you need a different moment, grab it directly:
 
 ```bash
