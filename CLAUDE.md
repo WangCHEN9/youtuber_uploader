@@ -23,7 +23,7 @@ src/ytupload/
   uploader.py    YoutubeUploader: resumable upload, playlists, thumbnails
   presets.py     named metadata defaults (dota-offlane)
   video.py       ffmpeg: duration probing, frame extraction
-  editor.py      highlight detection, cut planning, NVENC rendering
+  editor.py      highlight detection, cut planning, chapters, NVENC rendering
   thumbnail.py   Pillow: compose a thumbnail from hero art or a frame
   heroart.py     fetch and cache hero renders, item and ability icons
   splash.py      full-bleed hero layout with circular badges (the default)
@@ -132,6 +132,12 @@ These were deliberate. If you are about to undo one, say why first.
 - **The bisection ceiling must sit strictly above max(interest).** The threshold
   comparison is `>=`, and the returned bound is `high`, so a ceiling *at* the
   maximum lets an over-budget cut be returned when nothing fits. A test covers it.
+- **Whole matches are uploaded uncut, with chapters.** The user's choice
+  (2026-09-30): the cut sometimes lost what mattered - it once dropped the winning
+  push - and a full video loses nothing. `ytupload chapters` reuses the cut
+  planner only to place chapter marks at real times in the recording.
+  `cut` still exists for when an edit is explicitly asked for; do not make it
+  the default again.
 - **The ending is in every edit.** The user's rule: a match video must show how
   it ended. The last 90s of play (`FINALE_SECONDS`) are reserved before anything
   is ranked, and laning gives way first if the budget is tiny. The end of play

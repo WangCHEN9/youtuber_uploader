@@ -329,6 +329,45 @@ def _strip(tmp_path, name, hud):
     return path
 
 
+# --------------------------------------------------------- full-video chapters
+
+
+def test_full_video_chapters_sit_at_the_real_time_in_the_recording():
+    """Uncut, a chapter marks where the scene is in the recording, not in an edit."""
+    from ytupload.editor import full_video_chapters
+
+    segments = [(85.0, 700.0), (900.0, 960.0), (1500.0, 1600.0)]
+    marks = [position for position, _ in full_video_chapters(segments, game_start=100.0)[0]]
+    assert marks == [0.0, 85.0, 900.0, 1500.0]
+
+
+def test_full_video_chapters_open_with_pre_game_then_laning():
+    from ytupload.editor import full_video_chapters
+
+    _, labels = full_video_chapters([(85.0, 700.0), (900.0, 960.0)], game_start=100.0)
+    assert labels[:2] == ["Pre-game", "Laning phase"]
+
+
+def test_no_pre_game_chapter_when_the_recording_starts_at_the_horn():
+    """A pre-game chapter under 10s would make YouTube drop every chapter."""
+    from ytupload.editor import full_video_chapters
+
+    chapters, labels = full_video_chapters([(4.0, 600.0), (900.0, 960.0)], game_start=19.0)
+    assert labels[0] == "Laning phase"
+    assert len(chapters) == 2
+
+
+def test_full_video_chapters_render_with_the_first_at_zero(tmp_path):
+    from ytupload.editor import write_full_video_chapters
+
+    segments = [(85.0, 700.0), (900.0, 960.0), (1500.0, 1600.0)]
+    path = write_full_video_chapters(segments, 100.0, tmp_path / "c.txt")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "0:00 Pre-game"
+    assert lines[1] == "1:25 Laning phase"
+    assert lines[2].startswith("15:00 ")
+
+
 def test_game_end_is_the_last_sustained_hud(tmp_path):
     from ytupload.editor import detect_game_end
 

@@ -30,6 +30,7 @@ from .metadata import PRIVACY_CHOICES, MetadataError, VideoMetadata
 from .editor import (
     DEFAULT_LANE_MINUTES,
     write_chapters,
+    write_full_video_chapters,
     DEFAULT_TARGET_MINUTES,
     EditError,
     analyse,
@@ -499,6 +500,39 @@ def _report_thumbnail(result: Path) -> None:
     print("review it before uploading; pass it with --thumbnail")
 
 
+def cmd_chapters(args: argparse.Namespace) -> int:
+    """Write chapters for the full, uncut recording. Renders nothing."""
+    video_path = Path(args.video)
+    if not video_path.is_file():
+        raise SystemExit(f"error: not a file: {video_path}")
+
+    # Unique per run, for the same reason as cmd_cut.
+    workdir = Path(".editcache") / f"{video_path.stem}-{os.getpid()}"
+    print(f"analysing {video_path.name} ...")
+    try:
+        analysis = analyse(video_path, workdir / "strip")
+    except EditError as error:
+        raise SystemExit(f"error: {error}")
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    print(
+        f"  duration {format_duration(analysis.duration)}"
+        f"   game starts at {format_duration(analysis.game_start)}"
+    )
+    # The plan is only used to find the fights and the ending; nothing is cut.
+    segments = plan(analysis, lane_minutes=args.lane_minutes)
+    output_path = Path(args.out or video_path.with_name(f"{video_path.stem} - chapters.txt"))
+    written = write_full_video_chapters(segments, analysis.game_start, output_path)
+    if not written:
+        raise SystemExit("error: too few scenes found for YouTube chapters (need 3)")
+
+    print(f"\n{written.read_text(encoding='utf-8')}")
+    print(f"chapters: {written}")
+    print("  labels are placeholders - replace them before publishing")
+    return 0
+
+
 def cmd_cut(args: argparse.Namespace) -> int:
     """Cut a full match down to a highlight edit of a target length."""
     video_path = Path(args.video)
@@ -817,6 +851,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true", help="print the cut plan without rendering"
     )
     cut.set_defaults(func=cmd_cut)
+
+    chapters = subparsers.add_parser(
+        "chapters",
+        help="write YouTube chapters for the full, uncut match (renders nothing)",
+    )
+    chapters.add_argument("video", help="path to the video file")
+    chapters.add_argument(
+        "--lane-minutes",
+        type=float,
+        default=DEFAULT_LANE_MINUTES,
+        help=f"minutes the laning chapter covers (default: {DEFAULT_LANE_MINUTES:.0f})",
+    )
+    chapters.add_argument(
+        "--out", help="output path (default: '<video name> - chapters.txt' beside it)"
+    )
+    chapters.set_defaults(func=cmd_chapters)
 
     auth = subparsers.add_parser("auth", help="run OAuth consent and verify access")
     _add_common(auth)

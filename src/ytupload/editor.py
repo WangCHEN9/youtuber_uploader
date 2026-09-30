@@ -617,3 +617,40 @@ def write_chapters(
     path = Path(path)
     path.write_text(text + "\n", encoding="utf-8")
     return path
+
+
+def full_video_chapters(
+    segments: Sequence[Segment], game_start: float
+) -> Tuple[List[Tuple[float, float]], List[str]]:
+    """Chapters for the *uncut* recording: one mark where each planned scene starts.
+
+    The user chose to upload whole matches rather than a cut, because a cut can
+    lose something that mattered. The same plan still finds the fights and the
+    ending; here it only decides where the chapter marks go, and nothing is
+    dropped. Marks are in the recording's own timeline.
+    """
+    chapters: List[Tuple[float, float]] = []
+    labels: List[str] = []
+    lane_start = segments[0][0] if segments else 0.0
+    # The loading screen and pre-game countdown get their own chapter, unless it
+    # would be shorter than YouTube's minimum, which would void every chapter.
+    if lane_start >= MIN_CHAPTER_SECONDS:
+        chapters.append((0.0, 0.0))
+        labels.append("Pre-game")
+    for index, (begin, _) in enumerate(segments):
+        chapters.append((begin, max(begin - game_start, 0.0)))
+        labels.append("Laning phase" if index == 0 else "")
+    return chapters, labels
+
+
+def write_full_video_chapters(
+    segments: Sequence[Segment], game_start: float, path: Path
+) -> Optional[Path]:
+    """Write chapters for the uncut recording, or None if there are too few."""
+    chapters, labels = full_video_chapters(segments, game_start)
+    text = render_chapters(chapters, labels)
+    if not text:
+        return None
+    path = Path(path)
+    path.write_text(text + "\n", encoding="utf-8")
+    return path

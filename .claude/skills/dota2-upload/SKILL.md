@@ -89,13 +89,53 @@ easy, and a confidently wrong hero name in a public title is worse than one ques
 Ask for anything the frames cannot tell you — notable moments, item timings, how the
 game actually felt.
 
+**Ask whether it was a duo game.** The user sometimes queues with a friend, and the
+frames cannot show it. If so, add one line to the description ("This one was a duo
+game with a friend.") and a `duo` tag. Do not name or guess which ally the friend
+was; only use a name if the user gives one.
+
+**In a duo game, ask which position they played.** The user plays other roles when
+duoing, so offlane is not a safe assumption there. A duo Dawnbreaker game went up as
+"offlane" when it was safe lane and had to be relabelled after upload. For any role
+other than offlane, **do not pass `--preset dota-offlane`**: it adds offlane / pos 3
+tags, the "Position 3 / offlane" footer and the Offlane playlist. Write the role
+into the title, description and `--tags` yourself instead (e.g. `safe lane`,
+`position 1`, `pos 1`, `carry`), and ask which playlist, if any, it should go in.
+
 If you need a different moment, grab it directly:
 
 ```bash
 .venv/Scripts/python.exe -m ytupload frames "<video>" --at 1320
 ```
 
-### 3. Cut it down (optional, ask first)
+### 3. Chapter the full match (do not cut)
+
+**Upload the whole match, uncut, with chapters.** The user decided this on
+2026-09-30: the cut "is not so good sometimes" - it dropped the winning push from
+one game and made another choppy enough to re-upload twice. A full video loses
+nothing, and chapters still let viewers jump to the fights.
+
+```bash
+.venv/Scripts/python.exe -m ytupload chapters "<video>"
+```
+
+This analyses the match (~2 minutes), renders nothing, and writes
+`<video name> - chapters.txt` beside the capture:
+
+- `0:00 Pre-game` covers loading and the countdown (dropped if under 10s, since
+  a chapter shorter than that voids them all).
+- `Laning phase` starts just before the horn.
+- One mark per fight, at its **real time in the recording**, found by the same
+  ranking the cut used. The ending is always marked.
+
+Replace the placeholder labels by reading a frame from the middle of each scene
+(see *Writing chapter labels*), then pass the file with `--chapters-file`, and
+upload the **original capture**. With no cut there is no clock jump to explain.
+
+**Do not use `cut` unless the user asks for an edit.** It is kept in the tool, and
+the notes below apply if they do.
+
+#### If the user asks for a cut
 
 A full match is 40+ minutes. To cut it to a watchable highlight edit:
 
@@ -190,9 +230,9 @@ editing method in passive voice ("the laning phase is kept in full, because that
 is where offlane games are decided") which reads like release notes, not like
 someone talking about their game.
 
-- Talk about the **match**, not about how it was edited. The one exception is a
-  single casual line noting the game clock jumps, because otherwise viewers are
-  confused by it.
+- Talk about the **match**, not about how it was edited. Uploads are uncut now, so
+  there is no clock jump to explain; only if the user asked for a cut, add a
+  single casual line noting the game clock jumps.
 - First person and active voice. "I've cut the farming out", not "the farming is
   cut out".
 - Address the viewer at least once: "chapters below if you want to skip to the
@@ -217,6 +257,14 @@ timestamps and do not call them chapters.
 
 Do not write the recording date, the "Position 3 / offlane" line, or the subscribe
 line — `--preset dota-offlane` appends those. Writing them yourself duplicates them.
+
+**Duo games get the description in Chinese as well.** The user's voice chat with
+their friend is live and in Chinese, so part of the audience is Chinese-speaking.
+Write the English description first, then a Simplified Chinese version of the same
+text below it, separated by a blank line and a `---`. Translate the meaning in the
+same first-person voice; do not add claims the English lacks. The chapters and
+the preset footer come after both, once, and stay in English. Keep the English
+first: its first ~150 characters are what search shows.
 
 **Tags** — only what is specific to this video: hero names, the enemy laner, the
 patch, the theme. The preset already supplies `Dota 2`, `Dota2`, `dota 2 gameplay`,
@@ -283,9 +331,9 @@ offer to find official art for it and show it to the user before saving it.
 
 #### Writing chapter labels
 
-`cut` marks each chapter at the cut, so one chapter is one scene and the sections
-on the progress bar line up with the edit. Each scene opens with about 25 seconds
-of run-up, which belongs to that scene.
+`chapters` marks each fight where its scene starts in the recording, about 25
+seconds before the action, so the run-up belongs to that chapter. (With a cut,
+the marks sit on the cuts instead, one chapter per scene.)
 
 **Label the scene, not an instant inside it.** Read a frame from the middle of
 the scene to see what it is about, and write a label that stays true from the
@@ -332,8 +380,8 @@ Always pass `--expect-channel yoda_dota`. A Google account that owns a Brand
 Account channel silently authorises the personal channel otherwise, and the
 upload lands on the wrong one.
 
-Pass `--chapters-file "<name> - chapters.txt"` (written by `cut`) after replacing
-its placeholder labels with real descriptions read from the frames.
+Pass `--chapters-file "<video name> - chapters.txt"` (written by `chapters`) after
+replacing its placeholder labels with real descriptions read from the frames.
 
 **Always `--dry-run` first** and show the user. Privacy defaults to **public**, so an
 unreviewed run publishes immediately.
@@ -355,9 +403,9 @@ Get explicit approval, then re-run without `--dry-run`.
 same-drive rename, so it is instant even at 8 GB, and the new location is recorded so
 it is never re-uploaded.
 
-**When you uploaded a cut, `--archive` only moves the cut.** The user wants the
-original capture and the `<name> - chapters.txt` moved into `uploaded\` too, once the
-upload has succeeded. Use the same no-overwrite move:
+**`--archive` only moves the uploaded video.** The user wants the
+`- chapters.txt` moved into `uploaded\` too (and, if a cut was uploaded, the original
+capture as well), once the upload has succeeded. Use the same no-overwrite move:
 
 ```bash
 .venv/Scripts/python.exe -c "from ytupload.archive import archive_video; \

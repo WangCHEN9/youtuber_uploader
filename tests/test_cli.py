@@ -19,7 +19,7 @@ def test_parser_builds():
 
 
 @pytest.mark.parametrize(
-    "command", ["upload", "batch", "frames", "thumbnail", "auth"]
+    "command", ["upload", "batch", "frames", "thumbnail", "cut", "chapters", "auth"]
 )
 def test_every_command_parses_help(command):
     """--help exits 0 for each subcommand, proving its arguments are well formed."""
