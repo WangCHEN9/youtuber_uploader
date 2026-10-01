@@ -89,8 +89,14 @@ easy, and a confidently wrong hero name in a public title is worse than one ques
 Ask for anything the frames cannot tell you — notable moments, item timings, how the
 game actually felt.
 
-**Ask whether it was a duo game.** The user sometimes queues with a friend, and the
-frames cannot show it. If so, add one line to the description ("This one was a duo
+**Spot a duo game from the friend's name.** The user's duo partner plays as
+**松茸哥哥** (the user wrote it as 松蓉哥哥; the in-game name seen on 2026-09-29 was
+松茸哥哥, so match either). It shows in the ally chat, the kill feed and ward
+placement messages. If that name appears as a teammate, it is a duo game. If it is
+nowhere in the frames you read, treat the game as solo.
+
+**Ask whether it was a duo game** when you cannot tell. The user sometimes queues
+with a friend, and a handful of frames can miss the name. If so, add one line to the description ("This one was a duo
 game with a friend.") and a `duo` tag. Do not name or guess which ally the friend
 was; only use a name if the user gives one.
 
