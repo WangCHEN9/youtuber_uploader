@@ -46,7 +46,7 @@ from .heroart import (
     fetch_badge_icon,
     DEFAULT_WALLPAPER_DIR,
     fetch_hero_art,
-    find_wallpaper,
+    pick_wallpaper,
 )
 from .presets import PRESETS
 from .shadowplay import format_capture_date
@@ -371,6 +371,24 @@ def cmd_thumbnail(args: argparse.Namespace) -> int:
     return _frame_thumbnail(args, headline)
 
 
+def cmd_set_thumbnail(args: argparse.Namespace) -> int:
+    """Replace an existing video's thumbnail. Costs 50 quota units."""
+    image = Path(args.image)
+    if not image.is_file():
+        raise SystemExit(f"error: thumbnail not found: {image}")
+    uploader = YoutubeUploader(
+        client_secret_file=Path(args.client_secret),
+        token_file=Path(args.token_file),
+    )
+    print(f"channel: {_confirm_channel(uploader, args)}")
+    try:
+        uploader.set_thumbnail(args.video_id, image)
+    except UploadError as error:
+        raise SystemExit(f"error: {error}")
+    print(f"thumbnail set: https://youtu.be/{args.video_id}")
+    return 0
+
+
 def _resolve_hero_art(
     args: argparse.Namespace, wallpaper_dir: Path = DEFAULT_WALLPAPER_DIR
 ) -> Path:
@@ -381,7 +399,7 @@ def _resolve_hero_art(
             raise SystemExit(f"error: hero image not found: {art}")
         return art
     if not args.no_wallpaper:
-        wallpaper = find_wallpaper(args.hero, wallpaper_dir)
+        wallpaper = pick_wallpaper(args.hero, wallpaper_dir)
         if wallpaper:
             print(f"using wallpaper: {wallpaper}")
             return wallpaper
@@ -414,17 +432,18 @@ def _hero_thumbnail(args: argparse.Namespace, headline: str) -> int:
 
     try:
         if args.style == "splash":
-            # Full-bleed art with circular badges, and no text: YouTube already
-            # prints the title under the thumbnail.
+            # Full-bleed art, hero name top-left, circular badges along the
+            # bottom. --no-text gives the older text-free splash.
             result = make_splash_thumbnail(
                 art,
                 output_path,
                 badge_paths=badges,
                 accent=dominant_color(art),
-                headline=args.headline if args.with_text else None,
-                subtitle=args.subtitle if args.with_text else None,
+                headline=None if args.no_text else headline,
+                subtitle=None if args.no_text else args.subtitle,
                 brand_path=Path(args.brand_image) if args.brand_image else None,
                 opponent_art_path=opponent,
+                tag=None if args.no_text else args.tag,
             )
         else:
             result = make_hero_thumbnail(
@@ -788,7 +807,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--style",
         choices=("splash", "portrait"),
         default="splash",
-        help="splash: full-bleed art with circular badges and no text (default). "
+        help="splash: full-bleed art, hero name top-left, circular badges (default). "
         "portrait: hero beside large text.",
     )
     thumbnail.add_argument(
@@ -808,9 +827,13 @@ def build_parser() -> argparse.ArgumentParser:
         "mascot. Appears on every thumbnail, so viewers recognise the channel.",
     )
     thumbnail.add_argument(
-        "--with-text",
+        "--no-text",
         action="store_true",
-        help="draw the headline on a splash thumbnail (off by default)",
+        help="leave the hero name off a splash thumbnail",
+    )
+    thumbnail.add_argument(
+        "--tag",
+        help="small label under the hero name, e.g. the role: \"Offlane\", \"Carry\"",
     )
     thumbnail.add_argument("--subtitle", help="smaller supporting line, e.g. the matchup")
     thumbnail.add_argument(
@@ -867,6 +890,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--out", help="output path (default: '<video name> - chapters.txt' beside it)"
     )
     chapters.set_defaults(func=cmd_chapters)
+
+    set_thumb = subparsers.add_parser(
+        "set-thumbnail", help="replace the thumbnail of an already uploaded video"
+    )
+    set_thumb.add_argument("video_id", help="YouTube video id, e.g. RHTLx9ssW74")
+    set_thumb.add_argument("image", help="thumbnail image (1280x720, under 2 MB)")
+    _add_common(set_thumb)
+    set_thumb.add_argument(
+        "--expect-channel",
+        help="abort unless the authorised channel matches this title or handle",
+    )
+    set_thumb.set_defaults(func=cmd_set_thumbnail)
 
     auth = subparsers.add_parser("auth", help="run OAuth consent and verify access")
     _add_common(auth)

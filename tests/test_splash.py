@@ -270,3 +270,19 @@ def test_brand_mark_is_small_enough_to_stay_a_mark(art, tmp_path):
     from ytupload.splash import BADGE_DIAMETERS, BRAND_DIAMETER
 
     assert BRAND_DIAMETER < min(BADGE_DIAMETERS.values())
+
+
+def test_poster_tag_changes_the_image(art, tmp_path):
+    named = make_splash_thumbnail(art, tmp_path / "n.jpg", headline="Night Stalker")
+    tagged = make_splash_thumbnail(
+        art, tmp_path / "t.jpg", headline="Night Stalker", tag="Offlane"
+    )
+    assert named.read_bytes() != tagged.read_bytes()
+
+
+def test_poster_with_badges_stays_youtube_sized(art, badge, tmp_path):
+    out = make_splash_thumbnail(
+        art, tmp_path / "t.jpg", badge_paths=[badge] * 2, headline="Mars", tag="Offlane"
+    )
+    assert Image.open(out).size == THUMBNAIL_SIZE
+    assert out.stat().st_size <= MAX_BYTES

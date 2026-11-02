@@ -125,3 +125,25 @@ def test_thumbnail_has_no_result_flags():
     parser = cli.build_parser()
     with pytest.raises(SystemExit):
         parser.parse_args(["thumbnail", "--hero", "Mars", "--won"])
+
+
+def test_hero_art_picks_from_a_hero_folder(tmp_path):
+    folder = tmp_path / "mars"
+    folder.mkdir()
+    (folder / "one.jpg").write_bytes(b"x")
+    assert cli._resolve_hero_art(_thumbnail_args(), wallpaper_dir=tmp_path) == folder / "one.jpg"
+
+
+def test_set_thumbnail_command_parses():
+    args = cli.build_parser().parse_args(
+        ["set-thumbnail", "RHTLx9ssW74", "thumb.jpg", "--expect-channel", "yoda_dota"]
+    )
+    assert args.func is cli.cmd_set_thumbnail
+    assert (args.video_id, args.image) == ("RHTLx9ssW74", "thumb.jpg")
+
+
+def test_thumbnail_takes_a_tag_and_no_text():
+    args = cli.build_parser().parse_args(
+        ["thumbnail", "--hero", "Mars", "--tag", "Offlane", "--no-text"]
+    )
+    assert args.tag == "Offlane" and args.no_text

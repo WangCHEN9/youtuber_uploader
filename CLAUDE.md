@@ -152,14 +152,18 @@ These were deliberate. If you are about to undo one, say why first.
   composited as a cut-out with rim lighting. `_is_opaque()` decides.
 - **The left scrim is only drawn when there are badges.** Dimming a clean image for
   badges that are not there just makes it worse.
-- **Splash style draws no text by default.** YouTube prints the title beneath the
-  thumbnail already; repeating it inside the image competes with itself. Do not make
-  text the default.
+- **The hero name is drawn by default (poster style).** Reversed on 2026-11-02 at
+  the user's request: the old text-free splash on a flat render looked plain. With
+  a wallpaper behind it, the name top-left anchors the frame. Badges move to a row
+  along the bottom when text is present, because the name owns the left column.
+- **Wallpapers rotate as a shuffle bag, not plain random.** The user replays the
+  same heroes; with five or so images per hero, plain random gives consecutive
+  videos the same art too often. `wallpapers/` stays gitignored (fan art).
 - **The brand mark sits bottom-right, diagonally opposite the badges.** They can
   then never collide regardless of badge count. It is also deliberately smaller
   than any badge: it is identity, not information.
 - **At most three badges.** More stops reading as a set. Extras are dropped silently.
-- **Hero art is the default thumbnail source.** It cannot spoil anything, needs no
+- **A hero wallpaper is the default thumbnail source, the render the fallback.** It cannot spoil anything, needs no
   video, and themes itself from colours sampled out of the art.
 - **Valve hero slugs are irregular** (Shadow Fiend is `nevermore`, Doom is
   `doom_bringer`). `heroart._IRREGULAR_SLUGS` holds the exceptions; extend it rather

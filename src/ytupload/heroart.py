@@ -10,6 +10,8 @@ The irregular ones are listed explicitly; everything else follows the obvious ru
 
 from __future__ import annotations
 
+import json
+import random
 import re
 import urllib.error
 import urllib.request
@@ -146,6 +148,84 @@ def find_wallpaper(
         ):
             return candidate
     return None
+
+
+def find_wallpapers(
+    hero_name: str, wallpaper_dir: Path = DEFAULT_WALLPAPER_DIR
+) -> List[Path]:
+    """Every wallpaper for *hero_name*: a file named after the hero, plus every
+    image inside a folder named after the hero (``wallpapers/night_stalker/``).
+
+    The folder form exists because the user plays the same heroes over and over;
+    one image per hero made every thumbnail for that hero identical.
+    """
+    wallpaper_dir = Path(wallpaper_dir)
+    if not wallpaper_dir.is_dir():
+        return []
+    name = hero_name.strip().lower()
+    stems = {hero_slug(hero_name), re.sub(r"\s+", "_", name), re.sub(r"\s+", "-", name)}
+    found: List[Path] = []
+    for candidate in sorted(wallpaper_dir.iterdir()):
+        if candidate.is_dir() and candidate.name.lower() in stems:
+            found.extend(
+                image
+                for image in sorted(candidate.iterdir())
+                if image.is_file() and image.suffix.lower() in _WALLPAPER_SUFFIXES
+            )
+        elif (
+            candidate.is_file()
+            and candidate.suffix.lower() in _WALLPAPER_SUFFIXES
+            and candidate.stem.lower() in stems
+        ):
+            found.append(candidate)
+    return found
+
+
+#: Which wallpapers each hero has used in the current rotation. Lives inside the
+#: gitignored wallpaper folder because it describes that folder's contents.
+WALLPAPER_HISTORY = ".history.json"
+
+
+def pick_wallpaper(
+    hero_name: str,
+    wallpaper_dir: Path = DEFAULT_WALLPAPER_DIR,
+    rng: Optional[random.Random] = None,
+) -> Optional[Path]:
+    """A random wallpaper for *hero_name*, or None if there is none.
+
+    Works as a shuffle bag: every image is used once before any repeats, and a
+    new round never starts with the image that ended the last one. Plain random
+    with a handful of images would often give two videos in a row the same art.
+    """
+    wallpaper_dir = Path(wallpaper_dir)
+    choices = find_wallpapers(hero_name, wallpaper_dir)
+    if not choices:
+        return None
+    rng = rng or random.Random()
+    names = [path.relative_to(wallpaper_dir).as_posix() for path in choices]
+
+    history_path = wallpaper_dir / WALLPAPER_HISTORY
+    try:
+        history = json.loads(history_path.read_text(encoding="utf-8"))
+        if not isinstance(history, dict):
+            history = {}
+    except (OSError, ValueError):
+        history = {}
+    key = hero_slug(hero_name)
+    used = [name for name in history.get(key, []) if name in names]
+
+    fresh = [name for name in names if name not in used]
+    if not fresh:
+        last = used[-1] if used else None
+        fresh = [name for name in names if name != last] or names
+        used = []
+    pick = rng.choice(fresh)
+    history[key] = used + [pick]
+    try:
+        history_path.write_text(json.dumps(history, indent=1), encoding="utf-8")
+    except OSError:
+        pass  # Losing the rotation is harmless; failing the thumbnail is not.
+    return choices[names.index(pick)]
 
 
 def available_offline(hero_name: str, cache_dir: Path = DEFAULT_CACHE_DIR) -> bool:

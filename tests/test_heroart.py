@@ -110,3 +110,53 @@ def test_wallpaper_missing_folder_is_not_an_error(tmp_path):
     from ytupload.heroart import find_wallpaper
 
     assert find_wallpaper("Mars", tmp_path / "absent") is None
+
+
+def test_find_wallpapers_reads_a_hero_folder(tmp_path):
+    from ytupload.heroart import find_wallpapers
+
+    folder = tmp_path / "night_stalker"
+    folder.mkdir()
+    for name in ("a.jpg", "b.png", "notes.txt"):
+        (folder / name).write_bytes(b"x")
+    (tmp_path / "night_stalker.jpg").write_bytes(b"x")
+    found = find_wallpapers("Night Stalker", tmp_path)
+    assert sorted(p.name for p in found) == ["a.jpg", "b.png", "night_stalker.jpg"]
+
+
+def test_find_wallpapers_ignores_other_heroes(tmp_path):
+    from ytupload.heroart import find_wallpapers
+
+    (tmp_path / "mars").mkdir()
+    (tmp_path / "mars" / "a.jpg").write_bytes(b"x")
+    assert find_wallpapers("Night Stalker", tmp_path) == []
+
+
+def test_pick_wallpaper_uses_every_image_before_repeating(tmp_path):
+    import random
+
+    from ytupload.heroart import pick_wallpaper
+
+    folder = tmp_path / "mars"
+    folder.mkdir()
+    for index in range(4):
+        (folder / f"{index}.jpg").write_bytes(b"x")
+    rng = random.Random(7)
+    first_round = [pick_wallpaper("Mars", tmp_path, rng).name for _ in range(4)]
+    assert sorted(first_round) == ["0.jpg", "1.jpg", "2.jpg", "3.jpg"]
+    # A new round never opens with the image that closed the last one.
+    assert pick_wallpaper("Mars", tmp_path, rng).name != first_round[-1]
+
+
+def test_pick_wallpaper_survives_a_corrupt_history(tmp_path):
+    from ytupload.heroart import WALLPAPER_HISTORY, pick_wallpaper
+
+    (tmp_path / "mars.jpg").write_bytes(b"x")
+    (tmp_path / WALLPAPER_HISTORY).write_text("{not json", encoding="utf-8")
+    assert pick_wallpaper("Mars", tmp_path) == tmp_path / "mars.jpg"
+
+
+def test_pick_wallpaper_returns_none_without_images(tmp_path):
+    from ytupload.heroart import pick_wallpaper
+
+    assert pick_wallpaper("Mars", tmp_path) is None
