@@ -5,6 +5,15 @@ description: Use when the user wants to upload a Dota 2 gameplay video to YouTub
 
 # Uploading a Dota 2 video
 
+> **Do not stop to ask the user questions (2026-11-02).** "你没必要一直问我这些问题啊，
+> 我不会答的。用你默认的就行了。我如果有啥要改的，我会特别跟你说。" Wherever this
+> skill says *ask*, *confirm* or *get approval*, decide from the evidence instead
+> and keep going: infer the role from last hits and items (a duo game with ~500
+> last hits is pos 1), read the items as best you can, write the description only
+> from what the frames show, run the dry run as your own check, then upload.
+> Afterwards, report what you chose (role, items, title) so it can be corrected.
+> The only exception is when several new captures make it unclear which one is meant.
+
 ## The channel
 
 | | |
