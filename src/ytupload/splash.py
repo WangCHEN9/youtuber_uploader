@@ -83,8 +83,14 @@ def _rim_glow(
     being a generic blob behind them. Composited *under* the art, this is what
     separates the hero from the background and gives the frame its depth.
     """
-    alpha = art.getchannel("A").filter(ImageFilter.GaussianBlur(spread))
-    glow = Image.new("RGBA", art.size, color + (0,))
+    # Blur on a padded canvas. Blurring at the art's own size clipped the halo
+    # wherever the silhouette touched the image edge (wings, weapons), which
+    # showed up as a hard-edged rectangle of glow behind the hero.
+    pad = spread * 3
+    alpha = Image.new("L", (art.width + 2 * pad, art.height + 2 * pad), 0)
+    alpha.paste(art.getchannel("A"), (pad, pad))
+    alpha = alpha.filter(ImageFilter.GaussianBlur(spread))
+    glow = Image.new("RGBA", alpha.size, color + (0,))
     glow.putalpha(alpha.point(lambda value: int(value * strength)))
     return glow
 
@@ -148,6 +154,7 @@ def make_splash_thumbnail(
     subtitle: Optional[str] = None,
     brand_path: Optional[Path] = None,
     opponent_art_path: Optional[Path] = None,
+    tag: Optional[str] = None,
 ) -> Path:
     """Compose a full-bleed hero thumbnail with circular badges down the left.
 
@@ -190,6 +197,7 @@ def make_splash_thumbnail(
         subtitle,
         brand_path,
         versus=opponent_art_path is not None,
+        tag=tag,
     )
 
 
@@ -253,15 +261,24 @@ def _compose_cutout(
 
     # Two halos under the hero: a wide soft one for atmosphere, a tight bright one
     # that reads as rim light. Both follow the silhouette.
-    canvas.alpha_composite(
-        _rim_glow(art, _shade(accent, 1.25), int(height * 0.07), 0.55), (art_x, art_y)
-    )
-    canvas.alpha_composite(
-        _rim_glow(art, (255, 255, 255), int(height * 0.012), 0.42), (art_x, art_y)
-    )
+    for color, spread, strength in (
+        (_shade(accent, 1.25), int(height * 0.07), 0.55),
+        ((255, 255, 255), int(height * 0.012), 0.42),
+    ):
+        _paste_clipped(canvas, _rim_glow(art, color, spread, strength),
+                       (art_x - spread * 3, art_y - spread * 3))
     canvas.alpha_composite(art, (art_x, art_y))
 
     return canvas
+
+
+def _paste_clipped(canvas: Image.Image, layer: Image.Image, position: Tuple[int, int]) -> None:
+    """alpha_composite that accepts negative offsets by cropping the layer."""
+    x, y = position
+    left, top = max(0, -x), max(0, -y)
+    if left >= layer.width or top >= layer.height:
+        return
+    canvas.alpha_composite(layer.crop((left, top, layer.width, layer.height)), (max(x, 0), max(y, 0)))
 
 
 #: With an opponent, the frame becomes a two-hero split rather than one hero with
@@ -364,33 +381,35 @@ def _finish(
     subtitle: Optional[str],
     brand_path: Optional[Path] = None,
     versus: bool = False,
+    tag: Optional[str] = None,
 ) -> Path:
     """Badges, brand mark, grade, optional text and save. Shared by both paths."""
     width, height = THUMBNAIL_SIZE
 
     wanted = list(badge_paths[:3])  # More than three stops reading as a set.
-    # With two heroes the left column belongs to the opponent, so badges shrink
-    # into a row along the bottom instead of a large diagonal stack.
+    poster = bool(headline)
+    # With two heroes the left column belongs to the opponent, and on a poster
+    # it belongs to the hero name, so badges shrink into a row along the bottom
+    # instead of a large diagonal stack.
+    row = versus or poster
     diameter = int(
-        height * (BADGE_ROW_DIAMETER if versus else BADGE_DIAMETERS.get(len(wanted), 0.25))
+        height * (BADGE_ROW_DIAMETER if row else BADGE_DIAMETERS.get(len(wanted), 0.25))
     )
     badges: List[Image.Image] = [
         _circular_badge(Path(icon_path), diameter, accent) for icon_path in wanted
     ]
 
-    if badges and versus:
+    if poster:
+        canvas = Image.alpha_composite(canvas.convert("RGBA"), _left_scrim(POSTER_SCRIM_ALPHA))
+
+    if badges and row:
         gap = int(width * BADGE_ROW_GAP)
         left = int(width * BADGE_MARGIN_X)
         top = int(height * BADGE_ROW_Y)
         for index, badge in enumerate(badges):
             canvas.alpha_composite(badge, (left + index * (diameter + gap), top))
     elif badges:
-        scrim = Image.new("RGBA", THUMBNAIL_SIZE, (0, 0, 0, 0))
-        scrim_draw = ImageDraw.Draw(scrim)
-        for column in range(int(width * 0.48)):
-            alpha = int(150 * (1 - column / (width * 0.48)) ** 1.2)
-            scrim_draw.line([(column, 0), (column, height)], fill=(0, 0, 0, alpha))
-        canvas = Image.alpha_composite(canvas.convert("RGBA"), scrim)
+        canvas = Image.alpha_composite(canvas.convert("RGBA"), _left_scrim(150))
 
         count = len(badges)
         span = int(height * BADGE_SPAN)
@@ -415,25 +434,74 @@ def _finish(
 
     canvas = _grade(canvas.convert("RGB"))
 
-    if headline:
-        draw = ImageDraw.Draw(canvas)
-        margin = int(width * 0.035)
-        usable = int(width * 0.42)
-        headline_font = _fit_font(draw, headline.upper(), usable, start_size=92)
-        baseline = int(height * 0.78)
-        _draw_text_with_shadow(
-            draw, (margin, baseline), headline.upper(), headline_font, (255, 255, 255)
-        )
-        if subtitle:
-            subtitle_font = _fit_font(draw, subtitle, usable, start_size=40)
-            _draw_text_with_shadow(
-                draw,
-                (margin, baseline + headline_font.size + 10),
-                subtitle,
-                subtitle_font,
-                (220, 220, 220),
-            )
+    if poster:
+        _draw_poster_text(canvas, headline, subtitle, tag, accent)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     _save_under_size_limit(canvas, output_path)
     return output_path
+
+
+#: Poster layout (hero name top-left). The user's choice (2026-11-02), over the
+#: earlier text-free splash: with a wallpaper behind, the name anchors the frame.
+POSTER_SCRIM_ALPHA = 190
+POSTER_MARGIN_X = 0.035
+POSTER_TOP = 0.08
+POSTER_MAX_SIZE = 150
+POSTER_TEXT_WIDTH = 0.45
+
+
+def _left_scrim(max_alpha: int) -> Image.Image:
+    """Darken the left of the frame so badges and text read over busy art."""
+    width, height = THUMBNAIL_SIZE
+    reach = int(width * 0.6)
+    scrim = Image.new("RGBA", THUMBNAIL_SIZE, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(scrim)
+    for column in range(reach):
+        alpha = int(max_alpha * (1 - column / reach) ** 1.3)
+        draw.line([(column, 0), (column, height)], fill=(0, 0, 0, alpha))
+    return scrim
+
+
+def _draw_poster_text(
+    canvas: Image.Image,
+    headline: str,
+    subtitle: Optional[str],
+    tag: Optional[str],
+    accent: Tuple[int, int, int],
+) -> None:
+    """Hero name in large outlined capitals, one word per line, then a tag pill."""
+    width, height = THUMBNAIL_SIZE
+    draw = ImageDraw.Draw(canvas)
+    words = headline.upper().split()
+    longest = max(words, key=len)
+    font = _fit_font(draw, longest, int(width * POSTER_TEXT_WIDTH), start_size=POSTER_MAX_SIZE)
+    size = getattr(font, "size", 40)
+    stroke = max(size // 25, 3)
+    x = int(width * POSTER_MARGIN_X)
+    y = int(height * POSTER_TOP)
+    outline = _shade(accent, 0.9)
+    for word in words:
+        draw.text((x + 6, y + 8), word, font=font, fill=(0, 0, 0),
+                  stroke_width=stroke, stroke_fill=(0, 0, 0))
+        draw.text((x, y), word, font=font, fill=(255, 255, 255),
+                  stroke_width=stroke, stroke_fill=outline)
+        y += int(size * 1.02)
+
+    if tag:
+        tag_font = _fit_font(draw, tag.upper(), int(width * 0.3), start_size=40)
+        left, top, right, bottom = draw.textbbox((0, 0), tag.upper(), font=tag_font)
+        pad_x, pad_y = 18, 10
+        box_top = y + 14
+        draw.rounded_rectangle(
+            [x, box_top, x + (right - left) + 2 * pad_x, box_top + (bottom - top) + 2 * pad_y],
+            radius=10,
+            fill=_shade(accent, 1.1),
+        )
+        draw.text((x + pad_x - left, box_top + pad_y - top), tag.upper(), font=tag_font,
+                  fill=(10, 10, 14))
+        y = box_top + (bottom - top) + 2 * pad_y
+
+    if subtitle:
+        sub_font = _fit_font(draw, subtitle, int(width * POSTER_TEXT_WIDTH), start_size=40)
+        _draw_text_with_shadow(draw, (x, y + 14), subtitle, sub_font, (230, 230, 230))

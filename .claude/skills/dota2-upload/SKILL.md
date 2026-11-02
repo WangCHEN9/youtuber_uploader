@@ -285,13 +285,17 @@ total, so 5–8 extra tags is about right.
 
 **Never reveal the result** — not in the image, not in the text, not in the title.
 
-**Default: splash style, hero art, no text.** YouTube prints the title directly under
-the thumbnail, so words inside the image duplicate it and compete for the same glance.
-Let the art carry the frame and use circular badges to say what the video is about.
+**Default: poster style - a wallpaper full-bleed, the hero name in large capitals
+top-left, a role tag under it, badges along the bottom.** The user chose this on
+2026-11-02 over the earlier text-free splash on a flat hero render, which they found
+plain. The name is drawn automatically from `--hero`.
 
 ```bash
-.venv/Scripts/python.exe -m ytupload thumbnail --hero "Mars"   --badges "blink,mars_arena_of_blood"   --brand-image brand/yoda.png   --out mars-thumb.jpg
+.venv/Scripts/python.exe -m ytupload thumbnail --hero "Mars" --tag "Offlane"   --badges "blink,mars_arena_of_blood" --brand-image brand/yoda.png --out mars-thumb.jpg
 ```
+
+- `--tag` is the role: `Offlane` for pos 3, `Carry` for pos 1, and so on.
+- `--no-text` drops the name and tag (the old splash look).
 
 - `--badges` takes up to three items or abilities. Items are plain names (`blink`,
   `black king bar`, `assault cuirass`); abilities use their internal name. Pick
@@ -320,7 +324,6 @@ Let the art carry the frame and use circular badges to say what the video is abo
 - `--brand-image` puts the channel mascot in the bottom-right corner, diagonally
   opposite the badges. Use it on every thumbnail for a consistent identity.
 - `--style portrait` switches to the hero-beside-large-text layout.
-- `--with-text` adds the headline to a splash thumbnail. Usually leave it off.
 
 Art is downloaded from Valve's CDN and cached in `.heroart/`. Use display names
 (`"Shadow Fiend"`, `"Nature's Prophet"`); irregular Valve slugs are handled.
@@ -332,12 +335,34 @@ rectangular image is detected and used full-bleed, while a transparent PNG is
 composited as a cut-out with rim lighting. Both get the vignette, the sampled
 accent colour and the badges.
 
-**Collected wallpapers live in `wallpapers/`** at the repo root, one per hero, named
-after the hero (`mars.jpg`, `shadow_fiend.png`) or its Valve slug (`nevermore.jpg`).
-`--hero` uses one automatically when it exists and prints `using wallpaper:`; pass
-`--no-wallpaper` to get the stock render instead. The folder is gitignored on
-purpose: it is Valve's art, kept local only. When a hero has no wallpaper yet,
-offer to find official art for it and show it to the user before saving it.
+**Wallpapers live in `wallpapers/<hero>/`**, one folder per hero named after the
+hero or its Valve slug (`night_stalker/`, `nevermore/`); a single file named after
+the hero (`mars.jpg`) also works. `--hero` picks one **at random, cycling through
+every image before repeating** (history in `wallpapers/.history.json`), and prints
+`using wallpaper:`. The user asked for this because they play the same heroes over
+and over. `--no-wallpaper` falls back to the stock render.
+
+The folder is gitignored and must stay that way: most images are fan art from
+wallpaper sites, fine to use on the channel per the user, but not ours to publish
+in a public repo.
+
+**When a hero has no wallpaper folder yet**, build one before the thumbnail:
+1. Download candidates from `https://wallpaperaccess.com/<hero>-dota-2` or
+   `https://wallpaperaccess.com/<hero>` (the page's `data-src="/full/<id>.jpg"`
+   links) and `https://wallpapercave.com/<hero>-dota-2-wallpapers`. Send a browser
+   User-Agent. Wallhaven has an API but almost no Dota hero art.
+2. Make a numbered contact sheet and **look at it**: these pages mix in other
+   heroes, other games (S.T.A.L.K.E.R. for "night stalker") and unrelated art.
+3. Keep only landscape images (roughly 16:9 or wider, at least ~1200px wide) that
+   clearly show this hero; drop duplicates, portrait images and in-game screenshots.
+4. Copy the keepers into `wallpapers/<slug>/`. The user does not need to approve
+   each image (2026-11-02: "这些都挺好的，你以后可以随机用").
+
+The user follows sessions from another device and cannot open local paths: send
+previews into the chat (SendUserFile), never just a file path.
+
+**Replacing a thumbnail on a video already uploaded:**
+`ytupload set-thumbnail <video_id> <image> --expect-channel yoda_dota` (50 units).
 
 #### Writing chapter labels
 
