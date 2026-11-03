@@ -121,6 +121,15 @@ into the title, description and `--tags` yourself instead (e.g. `safe lane`,
 offlane duo game. Pass `--playlist "Dota 2 - Duo"`; it overrides the preset's
 Offlane playlist, so it is safe alongside `--preset dota-offlane`.
 
+**Three-stacks go in their own playlist, `Dota 2 - Trio`** (user, 2026-11-03). The
+second friend plays as **hsddsg** (seen in the kill feed and ally chat). If both
+松茸哥哥 and hsddsg are teammates, it is a three-stack, not a duo: pass
+`--playlist "Dota 2 - Trio"`, write "This one was a three-stack with two friends."
+(and the Chinese version, same as a duo game), and tag `three stack`, `party`
+instead of `duo`. The first one (LOumVspdz2k, 2026-11-02) went up as a duo and had
+to be corrected after upload: check every ally name in the kill feed, not just
+松茸哥哥's.
+
 If you need a different moment, grab it directly:
 
 ```bash

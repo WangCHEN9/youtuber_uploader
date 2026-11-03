@@ -46,6 +46,10 @@ Dota, it belongs in `presets.py` or the skill instead.
 `auth` there — that would make the package unimportable without the Google libraries
 installed, and the tests depend on being able to import without them.
 
+**Merge your own PRs (user, 2026-11-03).** Work on a branch, open the PR, and once the
+tests pass, merge it yourself (`gh pr merge --merge --delete-branch`), then pull `main`.
+Do not ask the user to merge: "以后这些 PR 你能不能就自己 merge 了？不要老是再问我了。"
+
 ## Decisions worth not re-litigating
 
 These were deliberate. If you are about to undo one, say why first.
